@@ -1,0 +1,34 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+echo "🔍 Running pre-push checks..."
+
+# Run linting
+echo "📝 Linting code..."
+npm run lint || {
+  echo "❌ Linting failed. Please fix errors before pushing."
+  exit 1
+}
+
+# Run type checking
+echo "🔍 Type checking..."
+npm run typecheck || {
+  echo "❌ Type check failed. Please fix type errors before pushing."
+  exit 1
+}
+
+# Run Prettier check
+echo "💅 Checking code formatting..."
+npm run format:check || {
+  echo "❌ Code formatting issues detected. Run 'npm run format' to fix."
+  exit 1
+}
+
+# Validate Prisma schema
+echo "🗄️  Validating database schema..."
+npx prisma validate || {
+  echo "❌ Prisma schema validation failed."
+  exit 1
+}
+
+echo "✅ All pre-push checks passed!"

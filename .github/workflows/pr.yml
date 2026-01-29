@@ -1,0 +1,242 @@
+name: Pull Request Automation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    branches:
+      - main
+      - develop
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  # Job 1: Auto-label PRs based on files changed
+  auto-label:
+    name: Auto Label PR
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Label based on changed files
+        uses: actions/labeler@v5
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          configuration-path: .github/labeler.yml
+          sync-labels: true
+
+  # Job 2: PR Size Checker
+  pr-size:
+    name: Check PR Size
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR size
+        id: pr-size
+        run: |
+          # Count lines changed
+          LINES_CHANGED=$(git diff --shortstat origin/${{ github.base_ref }}...HEAD | awk '{print $4+$6}')
+          echo "lines_changed=$LINES_CHANGED" >> $GITHUB_OUTPUT
+
+          # Determine size label
+          if [ "$LINES_CHANGED" -lt 100 ]; then
+            echo "size=XS" >> $GITHUB_OUTPUT
+          elif [ "$LINES_CHANGED" -lt 300 ]; then
+            echo "size=S" >> $GITHUB_OUTPUT
+          elif [ "$LINES_CHANGED" -lt 600 ]; then
+            echo "size=M" >> $GITHUB_OUTPUT
+          elif [ "$LINES_CHANGED" -lt 1000 ]; then
+            echo "size=L" >> $GITHUB_OUTPUT
+          else
+            echo "size=XL" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment PR size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const size = '${{ steps.pr-size.outputs.size }}';
+            const lines = '${{ steps.pr-size.outputs.lines_changed }}';
+
+            const sizeEmoji = {
+              'XS': '🐭',
+              'S': '🐹',
+              'M': '🐰',
+              'L': '🦁',
+              'XL': '🐘'
+            };
+
+            const comment = `
+            ## 📊 PR Size Analysis
+
+            ${sizeEmoji[size]} **Size: ${size}** (${lines} lines changed)
+
+            ${size === 'XL' ? '⚠️ This is a large PR. Consider breaking it into smaller PRs for easier review.' : '✅ Good PR size for review!'}
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Job 3: Check PR title follows conventional commits
+  pr-title-check:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+
+    steps:
+      - name: Check PR title format
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const pattern = /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .{1,100}/;
+
+            if (!pattern.test(title)) {
+              core.setFailed(
+                '❌ PR title must follow Conventional Commits format:\n\n' +
+                'Examples:\n' +
+                '  - feat: add user authentication\n' +
+                '  - fix(api): resolve CORS issue\n' +
+                '  - docs: update README with setup instructions\n' +
+                '  - refactor(components): simplify MediaCard logic\n\n' +
+                'Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert'
+              );
+            } else {
+              core.info('✅ PR title follows Conventional Commits format');
+            }
+
+  # Job 4: Check for required reviews
+  review-check:
+    name: Check Review Requirements
+    runs-on: ubuntu-latest
+    if: github.event.action == 'labeled' || github.event.action == 'unlabeled'
+
+    steps:
+      - name: Check if breaking change requires approval
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const labels = context.payload.pull_request.labels.map(l => l.name);
+            const hasBreakingChange = labels.includes('breaking-change');
+            const reviews = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+
+            const approvals = reviews.data.filter(r => r.state === 'APPROVED').length;
+
+            if (hasBreakingChange && approvals < 2) {
+              core.setFailed('⚠️ Breaking changes require at least 2 approvals');
+            }
+
+  # Job 5: Auto-assign reviewers
+  auto-assign:
+    name: Auto Assign Reviewers
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+
+    steps:
+      - name: Auto assign reviewers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Auto-assign based on CODEOWNERS or default reviewers
+            // Customize this list based on your team
+            const reviewers = [];
+
+            // Get PR author
+            const author = context.payload.pull_request.user.login;
+
+            // Don't assign author as reviewer
+            const filteredReviewers = reviewers.filter(r => r !== author);
+
+            if (filteredReviewers.length > 0) {
+              await github.rest.pulls.requestReviewers({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number,
+                reviewers: filteredReviewers.slice(0, 2) // Assign max 2 reviewers
+              });
+            }
+
+  # Job 6: Check for merge conflicts
+  conflict-check:
+    name: Check for Merge Conflicts
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for conflicts
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          if git merge-tree $(git merge-base HEAD origin/${{ github.base_ref }}) HEAD origin/${{ github.base_ref }} | grep -q "<<<<<"; then
+            echo "⚠️ Merge conflicts detected"
+            exit 1
+          else
+            echo "✅ No merge conflicts"
+          fi
+
+  # Job 7: Dependency changes notification
+  dependency-check:
+    name: Check Dependency Changes
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for package.json changes
+        id: check-deps
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "package.json"; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on dependency changes
+        if: steps.check-deps.outputs.changed == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = `
+            ## 📦 Dependency Changes Detected
+
+            This PR modifies \`package.json\`. Please ensure:
+            - [ ] All new dependencies are necessary
+            - [ ] Security audit passes (\`npm audit\`)
+            - [ ] No conflicting versions
+            - [ ] \`package-lock.json\` is updated
+            - [ ] Dependencies are from trusted sources
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });

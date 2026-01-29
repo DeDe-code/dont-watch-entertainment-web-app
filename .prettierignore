@@ -1,0 +1,14 @@
+node_modules/
+.nuxt/
+dist/
+.output/
+coverage/
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+prisma/migrations/

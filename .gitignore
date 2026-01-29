@@ -1,0 +1,42 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+Thumbs.db
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+
+# Prisma
+prisma/dev.db
+prisma/production.db
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Testing
+coverage/
+
+# VSCode settings
+.vscode/
+
+# GitHub
+local

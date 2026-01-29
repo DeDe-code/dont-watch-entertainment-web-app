@@ -1,0 +1,67 @@
+# Auto detect text files and normalize line endings to LF
+* text=auto eol=lf
+
+# Source code
+*.js text eol=lf
+*.jsx text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.vue text eol=lf
+*.css text eol=lf
+*.scss text eol=lf
+*.html text eol=lf
+
+# Configuration files
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.config.js text eol=lf
+*.config.ts text eol=lf
+.editorconfig text eol=lf
+.prettierrc text eol=lf
+.eslintrc.cjs text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+
+# Database
+*.prisma text eol=lf
+*.sql text eol=lf
+
+# Shell scripts
+*.sh text eol=lf
+
+# Environment files
+.env* text eol=lf
+
+# Git
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.svg binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.db binary
+*.sqlite binary
+
+# GitHub language statistics
+*.vue linguist-language=Vue
+*.prisma linguist-language=Prisma
+
+# Exclude from exports
+.github/ export-ignore
+.husky/ export-ignore
+.vscode/ export-ignore
+*.test.* export-ignore
+*.spec.* export-ignore
