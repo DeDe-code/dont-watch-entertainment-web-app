@@ -1,81 +1,81 @@
 # Auto-label PRs based on changed files
 
-"frontend":
+'frontend':
   - changed-files:
       - any-glob-to-any-file:
-          - "components/**/*"
-          - "pages/**/*"
-          - "layouts/**/*"
-          - "assets/**/*"
-          - "public/**/*"
+          - 'components/**/*'
+          - 'pages/**/*'
+          - 'layouts/**/*'
+          - 'assets/**/*'
+          - 'public/**/*'
 
-"backend":
+'backend':
   - changed-files:
       - any-glob-to-any-file:
-          - "server/**/*"
-          - "prisma/**/*"
+          - 'server/**/*'
+          - 'prisma/**/*'
 
-"database":
+'database':
   - changed-files:
       - any-glob-to-any-file:
-          - "prisma/**/*"
-          - "**/*.prisma"
+          - 'prisma/**/*'
+          - '**/*.prisma'
 
-"authentication":
+'authentication':
   - changed-files:
       - any-glob-to-any-file:
-          - "server/api/auth/**/*"
-          - "middleware/auth*"
-          - "schemas/auth*"
+          - 'server/api/auth/**/*'
+          - 'middleware/auth*'
+          - 'schemas/auth*'
 
-"api":
+'api':
   - changed-files:
       - any-glob-to-any-file:
-          - "server/api/**/*"
+          - 'server/api/**/*'
 
-"config":
+'config':
   - changed-files:
       - any-glob-to-any-file:
-          - "*.config.*"
-          - ".env*"
-          - "nuxt.config.*"
-          - "tailwind.config.*"
-          - "app.config.*"
+          - '*.config.*'
+          - '.env*'
+          - 'nuxt.config.*'
+          - 'tailwind.config.*'
+          - 'app.config.*'
 
-"dependencies":
+'dependencies':
   - changed-files:
       - any-glob-to-any-file:
-          - "package.json"
-          - "package-lock.json"
-          - "pnpm-lock.yaml"
-          - "yarn.lock"
+          - 'package.json'
+          - 'package-lock.json'
+          - 'pnpm-lock.yaml'
+          - 'yarn.lock'
 
-"documentation":
+'documentation':
   - changed-files:
       - any-glob-to-any-file:
-          - "**/*.md"
-          - "docs/**/*"
-          - ".github/**/*.md"
+          - '**/*.md'
+          - 'docs/**/*'
+          - '.github/**/*.md'
 
-"ci/cd":
+'ci/cd':
   - changed-files:
       - any-glob-to-any-file:
-          - ".github/workflows/**/*"
-          - ".husky/**/*"
-          - ".eslintrc.*"
-          - ".prettierrc*"
+          - '.github/workflows/**/*'
+          - '.husky/**/*'
+          - '.eslintrc.*'
+          - '.prettierrc*'
 
-"ui/ux":
+'ui/ux':
   - changed-files:
       - any-glob-to-any-file:
-          - "components/**/*"
-          - "assets/css/**/*"
-          - "layouts/**/*"
+          - 'components/**/*'
+          - 'assets/css/**/*'
+          - 'layouts/**/*'
 
-"testing":
+'testing':
   - changed-files:
       - any-glob-to-any-file:
-          - "**/*.test.*"
-          - "**/*.spec.*"
-          - "tests/**/*"
-          - "test/**/*"
+          - '**/*.test.*'
+          - '**/*.spec.*'
+          - 'tests/**/*'
+          - 'test/**/*'

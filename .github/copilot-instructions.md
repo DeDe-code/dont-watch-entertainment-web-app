@@ -155,7 +155,7 @@ Apply via utility classes: `.text-preset-1`, `.text-preset-2-mobile`, etc.
   size="xl"
   :ui="{
     base: 'bg-transparent border-b border-blue-500 text-white',
-    placeholder: 'placeholder-white/50',
+    placeholder: 'placeholder-white/50'
   }"
   variant="none"
 />
@@ -185,13 +185,13 @@ Only create custom components when Nuxt UI doesn't provide the functionality:
 
 ```typescript
 // Use getCachedData for optimized fetching
-const { data: movies } = await useFetch("/api/media", {
-  query: { category: "Movie" },
-  key: "movies",
+const { data: movies } = await useFetch('/api/media', {
+  query: { category: 'Movie' },
+  key: 'movies',
   getCachedData(key) {
-    return useNuxtData(key).data.value;
-  },
-});
+    return useNuxtData(key).data.value
+  }
+})
 ```
 
 ### Form Validation
@@ -248,14 +248,14 @@ async toggleBookmark(mediaId: string) {
 
 ```vue
 <script setup>
-const isMobile = ref(false);
+const isMobile = ref(false)
 
 const navClass = computed(() => {
   if (isMobile.value) {
-    return "fixed bottom-0 left-0 right-0 bg-blue-900 flex items-center px-4 py-4 z-50";
+    return 'fixed bottom-0 left-0 right-0 bg-blue-900 flex items-center px-4 py-4 z-50'
   }
-  return "fixed left-0 top-0 bottom-0 bg-blue-900 flex flex-col items-center py-8 px-6 z-50 w-24";
-});
+  return 'fixed left-0 top-0 bottom-0 bg-blue-900 flex flex-col items-center py-8 px-6 z-50 w-24'
+})
 </script>
 ```
 

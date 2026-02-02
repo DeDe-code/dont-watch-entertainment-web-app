@@ -1,5 +1,5 @@
 // @ts-check
-import withNuxt from './.nuxt/eslint.config.mjs';
+import withNuxt from './.nuxt/eslint.config.mjs'
 
 export default withNuxt(
   {
@@ -15,11 +15,11 @@ export default withNuxt(
           html: {
             void: 'always',
             normal: 'always',
-            component: 'always',
+            component: 'always'
           },
           svg: 'always',
-          math: 'always',
-        },
+          math: 'always'
+        }
       ],
 
       // TypeScript rules
@@ -27,8 +27,8 @@ export default withNuxt(
         'error',
         {
           argsIgnorePattern: '^_',
-          varsIgnorePattern: '^_',
-        },
+          varsIgnorePattern: '^_'
+        }
       ],
       '@typescript-eslint/no-explicit-any': 'warn',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -37,8 +37,8 @@ export default withNuxt(
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
       'prefer-const': 'error',
-      'no-var': 'error',
-    },
+      'no-var': 'error'
+    }
   },
   {
     ignores: [
@@ -48,7 +48,7 @@ export default withNuxt(
       '.output/',
       'coverage/',
       '*.min.js',
-      'prisma/migrations/',
-    ],
+      'prisma/migrations/'
+    ]
   }
-);
+)
