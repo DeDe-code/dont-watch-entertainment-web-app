@@ -37,7 +37,10 @@ export default withNuxt(
       'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
       'no-debugger': process.env.NODE_ENV === 'production' ? 'error' : 'warn',
       'prefer-const': 'error',
-      'no-var': 'error'
+      'no-var': 'error',
+
+      // Stylistic rules - align with Prettier
+      '@stylistic/operator-linebreak': ['error', 'after']
     }
   },
   {
