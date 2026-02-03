@@ -2,6 +2,8 @@
 
 <template>
   <div>
-    <h1>Hello from the don't watch entertainment app</h1>
+    <main>
+      <slot />
+    </main>
   </div>
 </template>

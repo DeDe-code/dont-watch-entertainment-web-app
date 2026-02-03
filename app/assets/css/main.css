@@ -1,18 +1,95 @@
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-@theme static {
-  --font-sans: 'Public Sans', sans-serif;
+/* Import Outfit font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap');
 
-  --color-green-50: #effdf5;
-  --color-green-100: #d9fbe8;
-  --color-green-200: #b3f5d1;
-  --color-green-300: #75edae;
-  --color-green-400: #00dc82;
-  --color-green-500: #00c16a;
-  --color-green-600: #00a155;
-  --color-green-700: #007f45;
-  --color-green-800: #016538;
-  --color-green-900: #0a5331;
-  --color-green-950: #052e16;
+/* Design System: Colors, Typography, and Spacing */
+@theme {
+  /* Typography - Outfit Font */
+  --font-sans: 'Outfit', sans-serif;
+
+  /* Custom Blue Shades */
+  --color-blue-950: #10141e;
+  --color-blue-900: #161d2f;
+  --color-blue-500: #5a698f;
+
+  /* Custom Red Shade */
+  --color-red-500: #fc4747;
+
+  /* Custom Spacing Scale */
+  --spacing-100: 8px;
+  --spacing-200: 16px;
+  --spacing-300: 24px;
+  --spacing-400: 32px;
+  --spacing-500: 40px;
+  --spacing-700: 56px;
+  --spacing-900: 72px;
+  --spacing-1000: 80px;
+}
+
+/* Custom Text Preset Utilities */
+@layer utilities {
+  /* Text Preset 1 - Desktop Headings (32px) */
+  .text-preset-1 {
+    font-size: 32px;
+    line-height: 125%;
+    letter-spacing: -0.5px;
+  }
+
+  /* Text Preset 1 - Mobile (20px) */
+  .text-preset-1-mobile {
+    font-size: 20px;
+    line-height: 125%;
+    letter-spacing: -0.3px;
+  }
+
+  /* Text Preset 2 - Medium Headings (24px) */
+  .text-preset-2 {
+    font-size: 24px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
+
+  /* Text Preset 2 - Mobile (16px) */
+  .text-preset-2-mobile {
+    font-size: 16px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
+
+  /* Text Preset 3 - Small Headings (18px) */
+  .text-preset-3 {
+    font-size: 18px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
+
+  /* Text Preset 3 - Mobile (15px) */
+  .text-preset-3-mobile {
+    font-size: 15px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
+
+  /* Text Preset 4 - Body Text (15px) */
+  .text-preset-4 {
+    font-size: 15px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
+
+  /* Text Preset 5 - Small Body (13px) */
+  .text-preset-5 {
+    font-size: 13px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
+
+  /* Text Preset 6 - Mobile Tiny Text (11px) */
+  .text-preset-6-mobile {
+    font-size: 11px;
+    line-height: 125%;
+    letter-spacing: 0px;
+  }
 }
