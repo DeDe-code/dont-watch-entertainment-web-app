@@ -1,10 +1,9 @@
+/* Design System: Colors, Typography, and Spacing */
+/* Import Outfit font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap');
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
-/* Import Outfit font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap');
-
-/* Design System: Colors, Typography, and Spacing */
 @theme {
   /* Typography - Outfit Font */
   --font-sans: 'Outfit', sans-serif;
