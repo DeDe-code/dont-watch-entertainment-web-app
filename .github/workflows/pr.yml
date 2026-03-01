@@ -1,6 +1,10 @@
 name: Pull Request Automation
 
 on:
+  push:
+    branches-ignore:
+      - main
+  workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches:
@@ -13,11 +17,36 @@ permissions:
   issues: write
 
 jobs:
+  # Job 0: Auto-create/update PR to main on branch pushes
+  open-or-update-pr:
+    name: Open or update PR to main
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create or update pull request
+        uses: repo-sync/pull-request@v2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          source_branch: ${{ github.ref_name }}
+          destination_branch: main
+          pr_title: 'chore: sync ${{ github.ref_name }} into main'
+          pr_body: |
+            This pull request is automatically created/updated when changes are pushed to `${{ github.ref_name }}`.
+
+            - Source: `${{ github.ref_name }}`
+            - Target: `main`
+
+            It keeps `main` protected while ensuring changes are promoted through PR review and required checks.
+
   # Job 1: Auto-label PRs based on files changed
   auto-label:
     name: Auto Label PR
     runs-on: ubuntu-latest
-    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
       - name: Checkout code
@@ -34,7 +63,7 @@ jobs:
   pr-size:
     name: Check PR Size
     runs-on: ubuntu-latest
-    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
       - name: Checkout code
@@ -96,7 +125,7 @@ jobs:
   pr-title-check:
     name: Validate PR Title
     runs-on: ubuntu-latest
-    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
       - name: Check PR title format
@@ -124,7 +153,7 @@ jobs:
   review-check:
     name: Check Review Requirements
     runs-on: ubuntu-latest
-    if: github.event.action == 'labeled' || github.event.action == 'unlabeled'
+    if: github.event_name == 'pull_request' && (github.event.action == 'labeled' || github.event.action == 'unlabeled')
 
     steps:
       - name: Check if breaking change requires approval
@@ -149,7 +178,7 @@ jobs:
   auto-assign:
     name: Auto Assign Reviewers
     runs-on: ubuntu-latest
-    if: github.event.action == 'opened'
+    if: github.event_name == 'pull_request' && github.event.action == 'opened'
 
     steps:
       - name: Auto assign reviewers
@@ -179,7 +208,7 @@ jobs:
   conflict-check:
     name: Check for Merge Conflicts
     runs-on: ubuntu-latest
-    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
       - name: Checkout code
@@ -201,7 +230,7 @@ jobs:
   dependency-check:
     name: Check Dependency Changes
     runs-on: ubuntu-latest
-    if: github.event.action == 'opened' || github.event.action == 'synchronize'
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
       - name: Checkout code

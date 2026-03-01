@@ -1,7 +1,6 @@
 <script setup lang="ts"></script>
 
 <template>
-  <AppHeader />
   <UMain>
     <slot />
   </UMain>

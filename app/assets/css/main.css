@@ -16,15 +16,28 @@
   /* Custom Red Shade */
   --color-red-500: #fc4747;
 
-  /* Custom Spacing Scale */
-  --spacing-100: 8px;
-  --spacing-200: 16px;
-  --spacing-300: 24px;
-  --spacing-400: 32px;
-  --spacing-500: 40px;
-  --spacing-700: 56px;
-  --spacing-900: 72px;
-  --spacing-1000: 80px;
+  /* Custom Spacing Scale - Tailwind will generate utilities like w-spacing-400 */
+  --spacing-spacing-100: 8px;
+  --spacing-spacing-200: 16px;
+  --spacing-spacing-300: 24px;
+  --spacing-spacing-400: 32px;
+  --spacing-spacing-500: 40px;
+  --spacing-spacing-700: 56px;
+  --spacing-spacing-900: 72px;
+  --spacing-spacing-1000: 80px;
+
+  /* Custom card sizes */
+  --max-width-login-card-mobile: 327px;
+  --max-width-login-card-tablet: 400px;
+  --max-height-login-card-mobile: 365px;
+  --max-height-login-card-tablet: 478.6px;
+}
+
+@layer base {
+  body {
+    background-color: var(--color-blue-950);
+    color: #ffffff;
+  }
 }
 
 /* Custom Text Preset Utilities */
