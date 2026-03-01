@@ -1,10 +1,6 @@
 name: Pull Request Automation
 
 on:
-  push:
-    branches-ignore:
-      - main
-  workflow_dispatch:
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     branches:
@@ -17,31 +13,6 @@ permissions:
   issues: write
 
 jobs:
-  # Job 0: Auto-create/update PR to main on branch pushes
-  open-or-update-pr:
-    name: Open or update PR to main
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Create or update pull request
-        uses: repo-sync/pull-request@7e79a9f5dc3ad0ce53138f01df2fad14a04831c5 # v2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          source_branch: ${{ github.ref_name }}
-          destination_branch: main
-          pr_title: 'chore: sync ${{ github.ref_name }} into main'
-          pr_body: |
-            This pull request is automatically created/updated when changes are pushed to `${{ github.ref_name }}`.
-
-            - Source: `${{ github.ref_name }}`
-            - Target: `main`
-
-            It keeps `main` protected while ensuring changes are promoted through PR review and required checks.
-
   # Job 1: Auto-label PRs based on files changed
   auto-label:
     name: Auto Label PR
