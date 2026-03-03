@@ -19,7 +19,7 @@ const items = computed<NavigationMenuItem[]>(() => [
     active: route.path.startsWith('/tv-series'),
     icon: 'i-custom-icon-nav-tv-series'
   }
-  // { label: 'Bookmarked', to: '/bookmarked', active: route.path.startsWith('/bookmarked') }
+  // { label: 'Bookmarked', to: '/bookmarked', active: route.path.startsWith('/bookmarked';) }
 ])
 </script>
 
