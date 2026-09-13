@@ -35,6 +35,25 @@ A fullstack entertainment web app built with Nuxt 3, featuring authentication, m
 5. **Caching:** Use `useFetch()` with `getCachedData` and unique keys; Pinia stores for client-side state
 6. **Validation:** Centralized Zod schemas in `schemas/` directory integrated with UForm
 7. **Responsive:** Mobile-first approach with Tailwind breakpoints (md: 768px, lg: 1024px)
+8. **Comments Required:** Every file — Vue components, TypeScript modules, CSS files, Prisma schemas, and config files — **must** include meaningful comments. Comment all sections, non-obvious logic, computed properties, API calls, configuration blocks, and lifecycle hooks. Use `//` for single-line TypeScript/JavaScript comments, `/* */` for multi-line blocks, and `<!-- -->` for Vue template sections. Omitting comments is considered a code quality violation.
+
+### Commenting Standards
+
+- **Vue `<script>` blocks:** Comment every `import`, reactive variable, `computed`, function, and composable call explaining its purpose.
+- **Vue `<template>` blocks:** Add `<!-- -->` comments before major sections (navigation, forms, lists, cards, modals).
+- **TypeScript/JavaScript files:** Add a file-level comment describing the module's responsibility, then comment each exported function, constant, and logic branch.
+- **CSS files:** Comment each `@layer`, `@theme` block, and each utility class group.
+- **Prisma schema:** Comment each model and each non-obvious field.
+- **Config files (`nuxt.config.ts`, `app.config.ts`):** Comment each configuration section explaining what it controls.
+
+```typescript
+// ✅ Good: explains the purpose
+// Build the navigation menu items, marking the current route as active
+const items = computed<NavigationMenuItem[]>(() => [...])
+
+// ❌ Bad: no comment, reader must infer purpose
+const items = computed<NavigationMenuItem[]>(() => [...])
+```
 
 ## Design System
 

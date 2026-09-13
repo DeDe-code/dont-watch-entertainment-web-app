@@ -1,44 +1,71 @@
+// Prisma schema — defines the database structure for the entertainment web app.
+// Run `npx prisma generate` after changes, then `npx prisma db push` to apply.
+
+// Generator: produce the Prisma Client for Node.js
 generator client {
   provider = "prisma-client-js"
 }
 
+// Datasource: SQLite for local development; DATABASE_URL is set in .env
 datasource db {
   provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
+// User — represents a registered account.
+// Passwords are stored as bcrypt hashes (never plain text).
 model User {
+  // Globally unique identifier generated automatically
   id        String   @id @default(uuid())
+  // User's login email — must be unique across all accounts
   email     String   @unique
+  // bcrypt-hashed password (salt rounds >= 10)
   password  String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // All bookmarks belonging to this user
   bookmarks Bookmark[]
 }
 
+// Media — a single movie or TV series entry.
 model Media {
-  id          String   @id @default(uuid())
-  title       String
-  year        Int
-  category    String   // "Movie" or "TV Series"
-  rating      String   // e.g., "PG", "18+"
-  thumbnail   String   // URL or path to image
-  isTrending  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  // Globally unique identifier generated automatically
+  id         String   @id @default(uuid())
+  title      String
+  // Release year (e.g. 2023)
+  year       Int
+  // Content type: either "Movie" or "TV Series"
+  category   String
+  // Age rating: e.g. "PG", "15+", "18+"
+  rating     String
+  // URL or relative path to the poster/thumbnail image
+  thumbnail  String
+  // Whether this item appears in the Trending section on the home page
+  isTrending Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  bookmarks   Bookmark[]
+  // All bookmarks that reference this media item
+  bookmarks Bookmark[]
 }
 
+// Bookmark — join table linking a User to a Media item they saved.
+// A given user can only bookmark the same item once (@@unique constraint).
 model Bookmark {
+  // Globally unique identifier generated automatically
   id        String   @id @default(uuid())
+  // Foreign key to the owning User
   userId    String
+  // Foreign key to the bookmarked Media item
   mediaId   String
   createdAt DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  media     Media    @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  // Cascade delete: remove bookmarks when the associated user is deleted
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Cascade delete: remove bookmarks when the associated media is deleted
+  media Media @relation(fields: [mediaId], references: [id], onDelete: Cascade)
 
+  // Enforce one bookmark per user per media item
   @@unique([userId, mediaId])
 }
