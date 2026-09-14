@@ -104,11 +104,17 @@ jobs:
         with:
           script: |
             const title = context.payload.pull_request.title;
-            const pattern = /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .{1,100}/;
+            const body = context.payload.pull_request.body ?? '';
+            const pattern = /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .{1,100}$/;
+            // Allow the PR body summary to satisfy the check when automation generates a human-readable PR title.
+            const firstBodyLine = body
+              .split('\n')
+              .map((line) => line.trim())
+              .find(Boolean);
 
-            if (!pattern.test(title)) {
+            if (!pattern.test(title) && !pattern.test(firstBodyLine ?? '')) {
               core.setFailed(
-                '❌ PR title must follow Conventional Commits format:\n\n' +
+                '❌ PR title or the first non-empty line of the PR body must follow Conventional Commits format:\n\n' +
                 'Examples:\n' +
                 '  - feat: add user authentication\n' +
                 '  - fix(api): resolve CORS issue\n' +
@@ -117,7 +123,7 @@ jobs:
                 'Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert'
               );
             } else {
-              core.info('✅ PR title follows Conventional Commits format');
+              core.info('✅ PR metadata follows Conventional Commits format');
             }
 
   # Job 4: Check for required reviews
