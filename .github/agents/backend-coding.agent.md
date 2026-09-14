@@ -3,6 +3,7 @@ name: 'Backend Coding'
 description: 'Implements one approved backend GitHub task at a time on the prepared task branch, edits only task-relevant code and tests, runs required validation, and hands completed work back to GitOps without performing Git/GitHub lifecycle operations.'
 argument-hint: 'Give me one prepared TASK-BE issue to implement on the current task branch.'
 target: vscode
+model: Claude Sonnet 5 (copilot)
 tools: ['execute', 'read', 'search', 'edit']
 handoffs:
   - label: 'Hand back to GitOps'
