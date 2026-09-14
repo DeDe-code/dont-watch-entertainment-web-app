@@ -1,0 +1,9 @@
+{
+  "id": 603692,
+  "title": "Sample Feature Film",
+  "release_date": "2023-03-22",
+  "overview": "Synthetic fixture overview text used only for deterministic test assertions.",
+  "poster_path": "/sample-poster.jpg",
+  "vote_average": 7.8,
+  "genre_ids": [28, 53, 80]
+}
