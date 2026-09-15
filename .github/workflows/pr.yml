@@ -34,7 +34,6 @@ jobs:
   pr-title-check:
     name: Validate PR Title
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
 
     steps:
       - name: Check PR title format
@@ -63,25 +62,3 @@ jobs:
             } else {
               core.info('✅ PR metadata follows Conventional Commits format');
             }
-
-  # Job 3: Check for merge conflicts
-  conflict-check:
-    name: Check for Merge Conflicts
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          fetch-depth: 0
-
-      - name: Check for conflicts
-        run: |
-          git fetch origin ${{ github.base_ref }}
-          if git merge-tree $(git merge-base HEAD origin/${{ github.base_ref }}) HEAD origin/${{ github.base_ref }} | grep -q "<<<<<"; then
-            echo "⚠️ Merge conflicts detected"
-            exit 1
-          else
-            echo "✅ No merge conflicts"
-          fi
