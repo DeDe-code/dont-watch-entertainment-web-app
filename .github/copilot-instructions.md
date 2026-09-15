@@ -36,19 +36,37 @@ Unless an approved task explicitly changes these decisions:
 
 The repository may contain legacy SQLite/JWT/local-catalogue code while migration tasks are in progress. Do not treat stale implementation as authority over an approved task or architecture decision.
 
+## Software design principles
+
+Prefer designs that minimize **system complexity over time**, following practical principles from John Ousterhout's _A Philosophy of Software Design_.
+
+- Prefer **deep modules**: substantial useful behavior behind small, simple interfaces.
+- Hide implementation details so callers do not depend on persistence, provider, session, or other internal mechanics.
+- Keep interfaces simpler than their implementations.
+- Avoid information leakage and duplicated design knowledge across modules.
+- Avoid shallow pass-through layers that add little abstraction.
+- Make adjacent layers operate at meaningfully different abstraction levels.
+- Prefer a small strategic design improvement over a quick tactical patch when it reduces long-term complexity without expanding task scope.
+- Eliminate avoidable error cases and invalid states through better contracts, types, schemas, constraints, or module boundaries when practical.
+- Keep important invariants explicit.
+- Avoid configuration proliferation and special-case behavior.
+- Use precise domain names.
+- Comment design intent, trade-offs, and invariants rather than obvious line-by-line behavior.
+- For consequential interfaces or boundaries, briefly consider a credible alternative before committing to a design.
+- Treat repeated special cases, broad interfaces, duplicated knowledge, pass-through methods, and change amplification as design warning signs.
+
+These principles do **not** justify unrelated refactors or scope expansion. If the cleaner design requires a broader architectural change, report it as follow-up work instead of silently widening the current task.
+
 ## Code quality
 
-Prefer simple, low-complexity designs and narrow changes.
+Prefer simple, low-complexity, task-scoped changes.
 
 - Use strong TypeScript types; avoid `any`, `@ts-ignore`, and disabled lint rules as shortcuts.
-- Prefer small public interfaces that hide implementation details.
-- Avoid duplicated knowledge, unnecessary pass-through layers, speculative abstractions, and configuration proliferation.
 - Keep responsibilities separated between API routes, services/provider adapters, validation, and persistence.
-- Use precise domain names.
-- Comment intent, invariants, or non-obvious reasoning; do not comment obvious code line-by-line.
 - Reuse sound existing project patterns before introducing new ones.
-
-If a cleaner solution requires a broader architecture change or unrelated refactor, report it instead of expanding the current task.
+- Keep provider-specific logic behind provider boundaries.
+- Keep persistence concerns behind approved service/repository boundaries.
+- Never hide or swallow meaningful errors.
 
 ## Security and data safety
 
