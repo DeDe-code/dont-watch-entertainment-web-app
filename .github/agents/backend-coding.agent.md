@@ -3,6 +3,7 @@ name: 'Backend Coding'
 description: 'Implements one approved backend task at a time on the prepared task branch, validates it, and stops for human review and commit.'
 argument-hint: 'Give me one prepared TASK-BE issue to implement on the current task branch.'
 target: vscode
+model: Claude Sonnet 5 (copilot)
 tools: ['execute', 'read', 'search', 'edit']
 ---
 
