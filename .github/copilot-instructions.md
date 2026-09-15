@@ -1,427 +1,81 @@
-# GitHub Copilot Instructions — Entertainment Web App
+# GitHub Copilot Instructions
 
-This document provides context and guidelines for GitHub Copilot when assisting with development of this entertainment streaming platform.
+## Project
 
-## Project Overview
+`dont-watch-entertainment-web-app` is a full-stack entertainment application built with **Nuxt 4, Vue 3, TypeScript, Nuxt UI, Tailwind CSS, Pinia, Prisma, PostgreSQL, and Zod**.
 
-A fullstack entertainment web app built with Nuxt 3, featuring authentication, media browsing, bookmarking, and search functionality. The app is responsive across desktop, tablet, and mobile viewports.
+GitHub is the source of truth for implementation and task state. Figma is the source of truth for UI/design when a task references it.
 
-## Technology Stack
+## Work from the task first
 
-### Frontend
+When implementing a GitHub issue:
 
-- **Framework:** Nuxt 3 with Vue 3 Composition API
-- **Language:** TypeScript
-- **UI Library:** Nuxt UI (built on Tailwind CSS)
-- **Styling:** Tailwind CSS with custom design tokens
-- **Validation:** Zod schemas for forms
-- **State Management:** Pinia stores
-- **Data Fetching:** `useFetch()` with caching strategies
-
-### Backend
-
-- **Runtime:** Node.js
-- **API:** Nuxt server routes (`server/api/`)
-- **Database:** SQLite with Prisma ORM
-- **Authentication:** JWT stored in HTTP-only cookies
-- **Password Hashing:** bcrypt
-
-## Key Architectural Principles
-
-1. **TypeScript First:** All code must use TypeScript for type safety
-2. **Nuxt UI First:** Use Nuxt UI's built-in components (UButton, UInput, UCard, UForm, UFormGroup) with custom theming; only create custom components when Nuxt UI doesn't provide the needed functionality
-3. **Component Customization:** Use Nuxt UI's `:ui` prop for styling overrides instead of creating duplicate components
-4. **Security:** HTTP-only cookies over localStorage, secure flag in production, SameSite strict, JWT verification on all protected routes
-5. **Caching:** Use `useFetch()` with `getCachedData` and unique keys; Pinia stores for client-side state
-6. **Validation:** Centralized Zod schemas in `schemas/` directory integrated with UForm
-7. **Responsive:** Mobile-first approach with Tailwind breakpoints (md: 768px, lg: 1024px)
-8. **Comments Required:** Every file — Vue components, TypeScript modules, CSS files, Prisma schemas, and config files — **must** include meaningful comments. Comment all sections, non-obvious logic, computed properties, API calls, configuration blocks, and lifecycle hooks. Use `//` for single-line TypeScript/JavaScript comments, `/* */` for multi-line blocks, and `<!-- -->` for Vue template sections. Omitting comments is considered a code quality violation.
-
-### Commenting Standards
-
-- **Vue `<script>` blocks:** Comment every `import`, reactive variable, `computed`, function, and composable call explaining its purpose.
-- **Vue `<template>` blocks:** Add `<!-- -->` comments before major sections (navigation, forms, lists, cards, modals).
-- **TypeScript/JavaScript files:** Add a file-level comment describing the module's responsibility, then comment each exported function, constant, and logic branch.
-- **CSS files:** Comment each `@layer`, `@theme` block, and each utility class group.
-- **Prisma schema:** Comment each model and each non-obvious field.
-- **Config files (`nuxt.config.ts`, `app.config.ts`):** Comment each configuration section explaining what it controls.
-
-```typescript
-// ✅ Good: explains the purpose
-// Build the navigation menu items, marking the current route as active
-const items = computed<NavigationMenuItem[]>(() => [...])
-
-// ❌ Bad: no comment, reader must infer purpose
-const items = computed<NavigationMenuItem[]>(() => [...])
-```
-
-## Design System
-
-### Colors
-
-- **White:** `#FFFFFF`
-- **Black:** `#000000`
-- **Blue 950:** `#10141E` (Primary dark background)
-- **Blue 900:** `#161D2F` (Secondary dark background)
-- **Blue 500:** `#5A698F` (Muted text/elements)
-- **Red 500:** `#FC4747` (Primary accent/CTA)
-
-### Typography (Outfit Font)
-
-- **Text Preset 1:** 32px / 125% line-height / -0.5px letter-spacing (Desktop headings)
-- **Text Preset 1 Mobile:** 20px / 125% line-height / -0.3px letter-spacing
-- **Text Preset 2:** 24px / 125% line-height / 0px letter-spacing (Medium headings)
-- **Text Preset 2 Mobile:** 16px / 125% line-height / 0px letter-spacing
-- **Text Preset 3:** 18px / 125% line-height / 0px letter-spacing (Small headings)
-- **Text Preset 3 Mobile:** 15px / 125% line-height / 0px letter-spacing
-- **Text Preset 4:** 15px / 125% line-height / 0px letter-spacing (Body text)
-- **Text Preset 5:** 13px / 125% line-height / 0px letter-spacing (Small body)
-- **Text Preset 6 Mobile:** 11px / 125% line-height / 0px letter-spacing (Tiny text)
-
-Apply via utility classes: `.text-preset-1`, `.text-preset-2-mobile`, etc.
-
-### Spacing
-
-- `spacing-100`: 8px
-- `spacing-200`: 16px
-- `spacing-300`: 24px
-- `spacing-400`: 32px
-- `spacing-500`: 40px
-- `spacing-700`: 56px
-- `spacing-900`: 72px
-- `spacing-1000`: 80px
-
-## Database Schema (Prisma)
-
-### Models
-
-- **User:** `id`, `email`, `password`, `createdAt`, `updatedAt`
-- **Media:** `id`, `title`, `year`, `category`, `rating`, `thumbnail`, `isTrending`, `createdAt`, `updatedAt`
-- **Bookmark:** `id`, `userId`, `mediaId`, `createdAt` with unique constraint on `userId_mediaId`
-
-### Relationships
-
-- User has many Bookmarks
-- Media has many Bookmarks
-- Bookmarks cascade delete when User or Media is deleted
-
-## Project Structure
-
-```
-├── assets/css/main.css          # Tailwind layers and custom utilities
-├── components/
-│   ├── MediaCard.vue            # Custom media card component
-│   ├── SearchBar.vue            # Search input with Nuxt UI UInput
-│   └── Navigation.vue           # Responsive navigation (sidebar/bottom bar)
-├── layouts/
-│   └── default.vue              # Main layout with Navigation
-├── middleware/
-│   └── auth.global.ts           # Client-side route protection
-├── pages/
-│   ├── index.vue                # Home (trending + recommended)
-│   ├── movies.vue               # Movies listing
-│   ├── tv-series.vue            # TV series listing
-│   ├── bookmarked.vue           # Bookmarked content
-│   ├── login.vue                # Login page (no layout)
-│   └── signup.vue               # Signup page (no layout)
-├── prisma/
-│   ├── schema.prisma            # Database schema
-│   └── seed.ts                  # Seed script with sample data
-├── schemas/
-│   └── auth.ts                  # Zod validation schemas
-├── server/
-│   ├── api/
-│   │   ├── auth/
-│   │   │   ├── login.post.ts
-│   │   │   ├── signup.post.ts
-│   │   │   └── logout.post.ts
-│   │   ├── media/
-│   │   │   ├── index.get.ts     # Get media with filters
-│   │   │   └── search.get.ts    # Search media
-│   │   └── bookmarks/
-│   │       ├── index.get.ts     # Get user bookmarks
-│   │       └── index.post.ts    # Toggle bookmark
-│   ├── middleware/
-│   │   └── auth.ts              # Server-side JWT verification
-│   └── utils/
-│       ├── auth.ts              # Auth utilities (hash, jwt, cookies)
-│       └── prisma.ts            # Prisma client singleton
-├── stores/
-│   └── bookmarks.ts             # Pinia store for bookmark state
-├── app.config.ts                # Nuxt UI theming
-├── nuxt.config.ts               # Nuxt configuration
-└── tailwind.config.ts           # Tailwind extensions
-```
-
-## Code Patterns & Best Practices
-
-### Authentication Flow
-
-1. **Signup/Login:** Validate with Zod → Hash password with bcrypt → Create/find user → Generate JWT → Set HTTP-only cookie → Return user data
-2. **Protected API Routes:** Server middleware checks JWT from cookie → Verifies token → Attaches user to `event.context.user`
-3. **Protected Pages:** Client middleware checks `auth_token` cookie → Redirects to `/login` if not authenticated
-
-### Component Patterns
-
-#### Using Nuxt UI Components
-
-```vue
-<!-- Use UInput with custom styling -->
-<UInput
-  v-model="searchQuery"
-  placeholder="Search..."
-  icon="i-heroicons-magnifying-glass"
-  size="xl"
-  :ui="{
-    base: 'bg-transparent border-b border-blue-500 text-white',
-    placeholder: 'placeholder-white/50'
-  }"
-  variant="none"
-/>
-
-<!-- Use UButton with theme colors -->
-<UButton
-  type="submit"
-  color="red"
-  size="lg"
-  block
-  :loading="loading"
-  :ui="{ font: 'font-light', rounded: 'rounded-md' }"
->
-  Login to your account
-</UButton>
-```
-
-#### Custom Components
-
-Only create custom components when Nuxt UI doesn't provide the functionality:
-
-- `MediaCard.vue` — Specialized media display with overlays and bookmarking
-- `SearchBar.vue` — Wrapper around UInput with custom search logic
-- `Navigation.vue` — Responsive navigation switching between layouts
-
-### Data Fetching with Caching
-
-```typescript
-// Use getCachedData for optimized fetching
-const { data: movies } = await useFetch('/api/media', {
-  query: { category: 'Movie' },
-  key: 'movies',
-  getCachedData(key) {
-    return useNuxtData(key).data.value
-  }
-})
-```
-
-### Form Validation
-
-```typescript
-// Define schema in schemas/auth.ts
-export const loginSchema = z.object({
-  email: z.string().email("Invalid email"),
-  password: z.string().min(1, "Required"),
-});
-
-// Use in component with UForm
-<UForm :state="formData" :schema="loginSchema" @submit="handleLogin">
-  <UFormGroup name="email" :error="errors.email">
-    <UInput v-model="formData.email" />
-  </UFormGroup>
-</UForm>
-```
-
-### Bookmark Management
-
-```typescript
-// In Pinia store (stores/bookmarks.ts)
-async toggleBookmark(mediaId: string) {
-  const { data } = await useFetch('/api/bookmarks', {
-    method: 'POST',
-    body: { mediaId },
-  });
-
-  if (data.value?.bookmarked) {
-    this.bookmarkedIds.add(mediaId);
-  } else {
-    this.bookmarkedIds.delete(mediaId);
-  }
-}
-
-// In component
-<MediaCard
-  :media="media"
-  :bookmarked="bookmarksStore.isBookmarked(media.id)"
-  @toggle-bookmark="bookmarksStore.toggleBookmark"
-/>
-```
-
-## Responsive Design Guidelines
-
-### Breakpoints
-
-- **Mobile:** < 768px — 2-column grid, bottom navigation bar
-- **Tablet:** 768px-1023px — 3-column grid, sidebar navigation
-- **Desktop:** ≥ 1024px — 4-column grid, sidebar navigation
-
-### Navigation Switching
-
-```vue
-<script setup>
-const isMobile = ref(false)
-
-const navClass = computed(() => {
-  if (isMobile.value) {
-    return 'fixed bottom-0 left-0 right-0 bg-blue-900 flex items-center px-4 py-4 z-50'
-  }
-  return 'fixed left-0 top-0 bottom-0 bg-blue-900 flex flex-col items-center py-8 px-6 z-50 w-24'
-})
-</script>
-```
-
-## API Endpoints
-
-### Authentication
-
-- `POST /api/auth/signup` — Create new user
-- `POST /api/auth/login` — Authenticate user
-- `POST /api/auth/logout` — Clear auth cookie
-
-### Media
-
-- `GET /api/media` — Get media (query: `category`, `trending`)
-- `GET /api/media/search` — Search media (query: `q`)
-
-### Bookmarks
-
-- `GET /api/bookmarks` — Get user's bookmarks (requires auth)
-- `POST /api/bookmarks` — Toggle bookmark (requires auth, body: `{ mediaId }`)
-
-## Common Tasks
-
-### Adding a New Page
-
-1. Create file in `pages/` directory
-2. Use default layout or set `definePageMeta({ layout: false })`
-3. Fetch data with `useFetch()` and caching
-4. Use Nuxt UI components for UI elements
-5. Access bookmarks via `useBookmarksStore()`
-
-### Adding a New API Endpoint
-
-1. Create file in `server/api/` with HTTP method suffix (e.g., `.get.ts`, `.post.ts`)
-2. Use `defineEventHandler()`
-3. Access authenticated user via `event.context.user`
-4. Use Prisma client from `~/server/utils/prisma`
-5. Return data or throw `createError()` for errors
-
-### Adding Form Validation
-
-1. Create Zod schema in `schemas/` directory
-2. Export schema and inferred types
-3. Use with UForm component: `:schema="yourSchema"`
-4. Handle validation in `@submit` handler
-
-### Modifying Database Schema
-
-1. Edit `prisma/schema.prisma`
-2. Run `npx prisma generate` to update client
-3. Run `npx prisma db push` to update database
-4. Update seed script if needed: `npm run seed`
-
-## Environment Variables
-
-### Development (.env)
-
-```env
-DATABASE_URL="file:./dev.db"
-JWT_SECRET="development-secret-change-in-production"
-NODE_ENV="development"
-```
-
-### Production (.env.production)
-
-```env
-DATABASE_URL="file:./production.db"
-JWT_SECRET="your-production-secret-change-this"
-NODE_ENV="production"
-```
-
-## Development Commands
-
-```bash
-# Start dev server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Database operations
-npx prisma generate      # Generate Prisma client
-npx prisma db push       # Push schema changes
-npx prisma studio        # Open database viewer
-npm run seed             # Seed database
-
-# TypeScript
-npm run typecheck        # Check types
-```
-
-## Security Considerations
-
-1. **Never store JWTs in localStorage** — Use HTTP-only cookies only
-2. **Always validate input** — Use Zod schemas on both client and server
-3. **Hash passwords** — Use bcrypt with salt rounds ≥ 10
-4. **Verify JWTs** — Check all protected API routes in server middleware
-5. **HTTPS in production** — Set `secure: true` for cookies
-6. **Sanitize database queries** — Prisma handles this automatically
-
-## Testing Checklist
-
-- [ ] **Authentication:** Login, signup, logout work correctly
-- [ ] **Navigation:** All routes accessible and protected appropriately
-- [ ] **Search:** Search functionality works on all pages
-- [ ] **Bookmarks:** Toggle, persist across sessions, display correctly
-- [ ] **Responsive:** Test mobile (< 768px), tablet (768-1023px), desktop (≥ 1024px)
-- [ ] **Performance:** Caching works, no unnecessary re-fetches
-- [ ] **Security:** Cookies are HTTP-only, routes are protected, passwords hashed
-
-## Troubleshooting
-
-### Prisma Client Not Found
-
-```bash
-npx prisma generate
-```
-
-### Database Locked
-
-Close Prisma Studio and restart development server.
-
-### Auth Cookie Not Setting
-
-- Check `secure` flag (requires HTTPS in production)
-- Verify `sameSite` settings
-- Clear browser cookies
-
-### Components Not Found
-
-- Verify file is in `components/` directory
-- Check file naming (PascalCase)
-- Restart dev server
-
-## References
-
-- [Nuxt 3 Documentation](https://nuxt.com/docs)
-- [Nuxt UI Documentation](https://ui.nuxt.com)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [Zod Documentation](https://zod.dev)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [Pinia Documentation](https://pinia.vuejs.org)
-
----
-
-**Last Updated:** January 22, 2026
-
-When suggesting code or making changes, always follow these guidelines and maintain consistency with existing patterns in the codebase.
+1. Read the selected issue completely.
+2. Inspect only the repository files needed to understand and implement it.
+3. Try to solve the task from the issue and relevant code first.
+4. Consult planning/architecture documents only when the issue or code is incomplete, ambiguous, conflicting, or requires a cross-cutting decision.
+
+Do **not** read the whole implementation plan by default. Do not repeatedly restate task context that is already clear.
+
+The selected GitHub issue is the immediate implementation contract. Preserve its scope, acceptance criteria, non-goals, dependencies, and open decisions. Do not implement future tasks early or perform unrelated refactors.
+
+## Target backend architecture
+
+Unless an approved task explicitly changes these decisions:
+
+- Nuxt/Nitro provides the server/API layer.
+- Prisma is the ORM and PostgreSQL is the target application database.
+- TMDB is the canonical source for media discovery, search, trending content, and media details.
+- PostgreSQL stores application-owned data: users, opaque sessions, bookmarks, and lightweight media references. Do not build a full duplicate TMDB catalogue.
+- Authentication uses **opaque, expiring, database-backed sessions**, not JWT application sessions.
+- Store only a hash of session tokens in the database.
+- TMDB credentials and other secrets remain server-side.
+- Normalize provider responses so frontend code is not coupled directly to TMDB response shapes.
+- Shared provider caches must not contain user-specific bookmark or session state.
+- Use Zod at runtime trust boundaries where validation is required.
+
+The repository may contain legacy SQLite/JWT/local-catalogue code while migration tasks are in progress. Do not treat stale implementation as authority over an approved task or architecture decision.
+
+## Code quality
+
+Prefer simple, low-complexity designs and narrow changes.
+
+- Use strong TypeScript types; avoid `any`, `@ts-ignore`, and disabled lint rules as shortcuts.
+- Prefer small public interfaces that hide implementation details.
+- Avoid duplicated knowledge, unnecessary pass-through layers, speculative abstractions, and configuration proliferation.
+- Keep responsibilities separated between API routes, services/provider adapters, validation, and persistence.
+- Use precise domain names.
+- Comment intent, invariants, or non-obvious reasoning; do not comment obvious code line-by-line.
+- Reuse sound existing project patterns before introducing new ones.
+
+If a cleaner solution requires a broader architecture change or unrelated refactor, report it instead of expanding the current task.
+
+## Security and data safety
+
+- Never expose, log, or commit secrets, passwords, password hashes, raw session tokens, cookies, or provider credentials.
+- Do not print `.env` contents.
+- Never run destructive database commands against an unknown, shared, staging, or production database.
+- Destructive integration-test cleanup must use an explicitly isolated test database.
+- Tests must not make live TMDB requests; mock or intercept external provider traffic with deterministic fixtures.
+
+## Validation
+
+Use the validation commands required by the current issue. When applicable, prefer the repository scripts:
+
+- `npm run lint`
+- `npm run format:check`
+- `npm run typecheck`
+- `npm test`
+- `npm run build`
+
+Do not claim a check passed if it was not run or was blocked. Distinguish pre-existing failures from regressions caused by the current task.
+
+## Git and GitHub operations
+
+Do not create/switch/delete branches, commit, push, open/merge pull requests, or mutate issues/projects unless the user explicitly asks for that operation.
+
+Never force-push, rewrite shared history, or discard user work.
+
+## Communication
+
+Keep progress updates terse. Do not narrate routine tool calls or repeatedly restate the task. Report only decisions, blockers, safety-relevant state, and final results.

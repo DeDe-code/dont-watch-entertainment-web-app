@@ -3,10 +3,7 @@
 'frontend':
   - changed-files:
       - any-glob-to-any-file:
-          - 'components/**/*'
-          - 'pages/**/*'
-          - 'layouts/**/*'
-          - 'assets/**/*'
+          - 'app/**/*'
           - 'public/**/*'
 
 'backend':
@@ -68,9 +65,10 @@
 'ui/ux':
   - changed-files:
       - any-glob-to-any-file:
-          - 'components/**/*'
-          - 'assets/css/**/*'
-          - 'layouts/**/*'
+          - 'app/components/**/*'
+          - 'app/layouts/**/*'
+          - 'app/pages/**/*'
+          - 'app/assets/**/*'
 
 'testing':
   - changed-files:
