@@ -40,7 +40,8 @@ export default withNuxt(
       'no-var': 'error',
 
       // Stylistic rules - align with Prettier
-      '@stylistic/operator-linebreak': ['error', 'after']
+      '@stylistic/operator-linebreak': ['error', 'after'],
+      '@stylistic/arrow-parens': ['error', 'always']
     }
   },
   {

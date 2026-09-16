@@ -12,6 +12,16 @@ export default defineNuxtConfig({
   // Register the global CSS file that contains Tailwind layers, design tokens, and custom utilities
   css: ['~/assets/css/main.css'],
 
+  runtimeConfig: {
+    databaseUrl: '',
+    tmdbAccessToken: '',
+    tmdbLanguage: 'en-US',
+    tmdbRegion: 'US',
+    tmdbRequestTimeoutMs: '5000',
+    tmdbCacheTtlSeconds: '300',
+    sessionTtlSeconds: '604800'
+  },
+
   // Pre-render the home page at build time for faster initial load
   routeRules: {
     '/': { prerender: true }
