@@ -5,7 +5,7 @@
  *
  * A new PrismaClient is instantiated on first import. In development, the instance
  * is cached on `globalThis` to survive hot-module replacement (HMR) reloads and
- * prevent exhausting the SQLite connection pool. In production a fresh client is
+ * prevent exhausting the PostgreSQL connection pool. In production a fresh client is
  * created once per process — no caching needed.
  */
 import { PrismaClient } from '@prisma/client'

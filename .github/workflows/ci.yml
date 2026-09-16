@@ -55,6 +55,11 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Apply database migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app_test
+
       - name: Test
         run: npm test
         env:
