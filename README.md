@@ -127,8 +127,13 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-DATABASE_URL="file:./dev.db"
-JWT_SECRET="your-secret-key-change-in-production"
+NUXT_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
+NUXT_TMDB_ACCESS_TOKEN="replace-with-a-tmdb-api-read-access-token"
+NUXT_TMDB_LANGUAGE="en-US"
+NUXT_TMDB_REGION="US"
+NUXT_TMDB_REQUEST_TIMEOUT_MS="5000"
+NUXT_TMDB_CACHE_TTL_SECONDS="300"
+NUXT_SESSION_TTL_SECONDS="604800"
 NODE_ENV="development"
 ```
 
@@ -274,8 +279,13 @@ The app uses the **Outfit** font family with predefined text presets:
 ### Environment Variables (Production)
 
 ```env
-DATABASE_URL="file:./production.db"
-JWT_SECRET="your-secure-production-secret"
+NUXT_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
+NUXT_TMDB_ACCESS_TOKEN="set-in-the-deployment-environment"
+NUXT_TMDB_LANGUAGE="en-US"
+NUXT_TMDB_REGION="US"
+NUXT_TMDB_REQUEST_TIMEOUT_MS="5000"
+NUXT_TMDB_CACHE_TTL_SECONDS="300"
+NUXT_SESSION_TTL_SECONDS="604800"
 NODE_ENV="production"
 ```
 
