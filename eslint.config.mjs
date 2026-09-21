@@ -49,7 +49,20 @@ export default withNuxt(
           }
         }
       ],
-      '@stylistic/arrow-parens': ['error', 'always']
+      '@stylistic/arrow-parens': ['error', 'always'],
+      '@stylistic/member-delimiter-style': [
+        'error',
+        {
+          multiline: {
+            delimiter: 'none',
+            requireLast: false
+          },
+          singleline: {
+            delimiter: 'semi',
+            requireLast: false
+          }
+        }
+      ]
     }
   },
   {
