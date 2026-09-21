@@ -77,10 +77,24 @@ export class ApplicationError extends Error {
   }
 }
 
+export type ProviderErrorCode =
+  | 'TIMEOUT'
+  | 'AUTHENTICATION'
+  | 'NOT_FOUND'
+  | 'RATE_LIMITED'
+  | 'UPSTREAM'
+  | 'INVALID_RESPONSE'
+
 export class ProviderError extends Error {
-  constructor(message = 'Provider request failed') {
+  readonly code: ProviderErrorCode
+
+  constructor(
+    message = 'Provider request failed',
+    code: ProviderErrorCode = 'UPSTREAM'
+  ) {
     super(message)
     this.name = 'ProviderError'
+    this.code = code
   }
 }
 
