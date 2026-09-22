@@ -75,7 +75,14 @@ export const mediaPathSchema = z.object({
   externalId: z.coerce.number().int().positive()
 })
 
-export const mediaQuerySchema = z.object({
-  page: pageSchema.default(1),
+export const mediaPageQuerySchema = z.object({
+  page: pageSchema.default(1)
+})
+
+export const mediaSearchQuerySchema = mediaPageQuerySchema.extend({
+  q: z.string().trim().min(1).max(100)
+})
+
+export const mediaQuerySchema = mediaPageQuerySchema.extend({
   search: z.string().trim().min(1).max(100).optional()
 })
