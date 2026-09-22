@@ -45,7 +45,9 @@ export default withNuxt(
         'after',
         {
           overrides: {
-            '|': 'before'
+            '|': 'before',
+            '?': 'before',
+            ':': 'before'
           }
         }
       ],
