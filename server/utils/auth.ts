@@ -69,14 +69,26 @@ export function clearSessionCookie(event: H3Event): void {
   deleteCookie(event, SESSION_COOKIE_NAME, cookieOptions())
 }
 
+export function resolveSessionTtlSeconds(value: unknown): number {
+  const ttlSeconds =
+    typeof value === 'number' ? value : Number.parseInt(String(value), 10)
+
+  if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0) {
+    throw new Error('Invalid runtime configuration: sessionTtlSeconds')
+  }
+
+  return ttlSeconds
+}
+
 export async function createSession(
   userId: string,
-  ttlSeconds = DEFAULT_SESSION_TTL_SECONDS
+  ttlSeconds = DEFAULT_SESSION_TTL_SECONDS,
+  db: Pick<typeof prisma, 'session'> = prisma
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = generateSessionToken()
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000)
 
-  await prisma.session.create({
+  await db.session.create({
     data: {
       userId,
       tokenHash: hashSessionToken(token),

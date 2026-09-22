@@ -7,6 +7,7 @@ import {
   getSessionCookie,
   hashPassword,
   hashSessionToken,
+  resolveSessionTtlSeconds,
   setSessionCookie,
   verifyPassword
 } from '../../server/utils/auth'
@@ -56,6 +57,13 @@ describe('authentication primitives', () => {
     expect(secondToken).not.toBe(firstToken)
     expect(hashSessionToken(firstToken)).toMatch(/^[a-f0-9]{64}$/)
     expect(hashSessionToken(firstToken)).not.toContain(firstToken)
+  })
+
+  it('accepts only positive integer session TTL values from runtime config', () => {
+    expect(resolveSessionTtlSeconds('604800')).toBe(604800)
+    expect(resolveSessionTtlSeconds(900)).toBe(900)
+    expect(() => resolveSessionTtlSeconds('NaN')).toThrow(/sessionTtlSeconds/)
+    expect(() => resolveSessionTtlSeconds(0)).toThrow(/sessionTtlSeconds/)
   })
 
   it('sets and clears an HttpOnly lax session cookie with the application path', () => {
