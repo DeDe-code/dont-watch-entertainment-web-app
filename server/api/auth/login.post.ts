@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody } from 'h3'
 import {
   createSession,
+  resolveSessionTtlSeconds,
   setSessionCookie,
   verifyPassword
 } from '../../utils/auth'
@@ -30,7 +31,7 @@ export default defineEventHandler((event) =>
 
     const session = await createSession(
       user.id,
-      Number(useRuntimeConfig(event).sessionTtlSeconds)
+      resolveSessionTtlSeconds(useRuntimeConfig(event).sessionTtlSeconds)
     )
     setSessionCookie(event, session.token, session.expiresAt)
 

@@ -2,6 +2,7 @@ import { defineEventHandler, readBody, setResponseStatus } from 'h3'
 import {
   createSession,
   hashPassword,
+  resolveSessionTtlSeconds,
   setSessionCookie,
   type SafeUser
 } from '../../utils/auth'
@@ -14,6 +15,9 @@ export default defineEventHandler((event) =>
   withRouteErrors(event, async () => {
     const input = validateBody(signupInputSchema, await readBody(event))
     const passwordHash = await hashPassword(input.password)
+    const sessionTtlSeconds = resolveSessionTtlSeconds(
+      useRuntimeConfig(event).sessionTtlSeconds
+    )
     const { user, session } = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data: { email: input.email, passwordHash },
@@ -24,11 +28,7 @@ export default defineEventHandler((event) =>
           updatedAt: true
         }
       })
-      const session = await createSession(
-        user.id,
-        Number(useRuntimeConfig(event).sessionTtlSeconds),
-        tx
-      )
+      const session = await createSession(user.id, sessionTtlSeconds, tx)
 
       return { user, session }
     })
