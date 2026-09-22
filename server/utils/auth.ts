@@ -71,12 +71,13 @@ export function clearSessionCookie(event: H3Event): void {
 
 export async function createSession(
   userId: string,
-  ttlSeconds = DEFAULT_SESSION_TTL_SECONDS
+  ttlSeconds = DEFAULT_SESSION_TTL_SECONDS,
+  db: Pick<typeof prisma, 'session'> = prisma
 ): Promise<{ token: string; expiresAt: Date }> {
   const token = generateSessionToken()
   const expiresAt = new Date(Date.now() + ttlSeconds * 1000)
 
-  await prisma.session.create({
+  await db.session.create({
     data: {
       userId,
       tokenHash: hashSessionToken(token),
