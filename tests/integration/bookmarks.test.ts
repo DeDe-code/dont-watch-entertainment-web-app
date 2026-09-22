@@ -74,8 +74,12 @@ describe('bookmark persistence (TASK-BE-011)', () => {
     await expect(service.deleteBookmark(firstUser.id, identity)).resolves.toBe(
       true
     )
-    await expect(service.listBookmarks(firstUser.id)).resolves.toHaveLength(0)
-    await expect(service.listBookmarks(secondUser.id)).resolves.toHaveLength(1)
+    await expect(service.listBookmarks(firstUser.id)).resolves.toMatchObject({
+      data: []
+    })
+    await expect(service.listBookmarks(secondUser.id)).resolves.toMatchObject({
+      data: [{ userId: secondUser.id }]
+    })
     await expect(service.deleteBookmark(firstUser.id, identity)).resolves.toBe(
       false
     )
@@ -86,7 +90,7 @@ describe('bookmark persistence (TASK-BE-011)', () => {
     await service.createBookmark(user.id, media)
 
     const listed = await service.listBookmarks(user.id)
-    expect(listed[0]?.mediaReference).toMatchObject({
+    expect(listed.data[0]?.mediaReference).toMatchObject({
       titleSnapshot: media.title,
       yearSnapshot: media.year,
       posterPathSnapshot: media.posterPath

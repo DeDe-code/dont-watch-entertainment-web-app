@@ -104,12 +104,23 @@ export function createBookmarkService(database: PrismaClient) {
     })
   }
 
-  function listBookmarks(userId: string) {
-    return database.bookmark.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      include: { mediaReference: true }
-    })
+  async function listBookmarks(userId: string, page = 1, pageSize = 20) {
+    const [data, totalResults] = await database.$transaction([
+      database.bookmark.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: { mediaReference: true }
+      }),
+      database.bookmark.count({ where: { userId } })
+    ])
+
+    return {
+      data,
+      totalResults,
+      totalPages: Math.ceil(totalResults / pageSize)
+    }
   }
 
   async function findBookmarkedIdentities(

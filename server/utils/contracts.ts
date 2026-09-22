@@ -86,3 +86,11 @@ export const mediaSearchQuerySchema = mediaPageQuerySchema.extend({
 export const mediaQuerySchema = mediaPageQuerySchema.extend({
   search: z.string().trim().min(1).max(100).optional()
 })
+
+export const bookmarkCreateInputSchema = mediaItemSchema
+export const bookmarkListQuerySchema = mediaPageQuerySchema
+export const bookmarkIdentityPathSchema = z.object({
+  provider: providerSchema,
+  externalId: z.coerce.number().int().positive(),
+  mediaType: mediaTypeSchema
+})
