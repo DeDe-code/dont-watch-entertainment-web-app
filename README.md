@@ -1,382 +1,124 @@
-# Entertainment Web App 🎬
+# Don't Watch Entertainment
 
-[![Nuxt UI](https://img.shields.io/badge/Made%20with-Nuxt%20UI-00DC82?logo=nuxt&labelColor=020420)](https://ui.nuxt.com)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Prisma](https://img.shields.io/badge/Prisma-5.9+-2D3748?logo=prisma&logoColor=white)](https://www.prisma.io/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+Nuxt 4 full-stack entertainment application. The server uses Nitro API routes, PostgreSQL, Prisma, opaque database-backed sessions, and TMDB as the canonical media provider.
 
-A modern, fullstack entertainment streaming platform built with Nuxt 3, featuring user authentication, media browsing, bookmarking functionality, and advanced search capabilities. The application is fully responsive across desktop, tablet, and mobile devices.
+## Stack and architecture
 
-## ✨ Features
+- Nuxt 4, Vue 3, TypeScript, Nuxt UI, Tailwind CSS, and Pinia
+- Nitro server routes with Zod validation
+- PostgreSQL accessed through Prisma
+- TMDB for trending, discovery, search, details, and ratings
+- bcrypt password hashing
 
-- 🔐 **Secure Authentication** — JWT-based auth with HTTP-only cookies
-- 🎥 **Media Browsing** — Browse movies and TV series with trending content
-- 🔖 **Bookmarking** — Save and manage favorite content
-- 🔍 **Advanced Search** — Search across all media with real-time results
-- 📱 **Fully Responsive** — Optimized for mobile, tablet, and desktop
-- 🎨 **Custom Design System** — Tailored UI with Nuxt UI components
-- ⚡ **Optimized Performance** — Smart caching and data fetching strategies
-- 🔒 **Security First** — Input validation, password hashing, protected routes
+The database has four application-owned roles:
 
-## 🛠 Technology Stack
+- `User` stores account identity and the password hash.
+- `Session` stores an expiry and only a SHA-256 hash of the opaque session token.
+- `MediaReference` stores a lightweight TMDB identity and display snapshot for bookmarked media; it is not a local media catalogue.
+- `Bookmark` joins a user to a `MediaReference`.
 
-### Frontend
+TMDB responses are normalized by the provider adapter. A shared in-process provider cache stores provider responses for the configured TTL and contains no user state. Media endpoints optionally read the session and enrich normalized results with the requesting user's `isBookmarked` value. Bookmark state remains user-specific in PostgreSQL.
 
-| Technology       | Version | Purpose                                 |
-| ---------------- | ------- | --------------------------------------- |
-| **Nuxt 3**       | 4.2.2+  | Full-stack framework with Vue 3         |
-| **Vue 3**        | 3.4.15+ | Composition API for reactive components |
-| **TypeScript**   | 5.3+    | Type-safe development                   |
-| **Nuxt UI**      | 4.4.0+  | UI component library                    |
-| **Tailwind CSS** | 4.1.18+ | Utility-first styling                   |
-| **Pinia**        | 2.1.7+  | State management                        |
-| **Zod**          | 3.22.4+ | Schema validation                       |
+## Prerequisites
 
-### Backend
+- Node.js 22 (the CI workflow tests Node 22)
+- npm
+- PostgreSQL 16 or a compatible PostgreSQL service
+- A TMDB API Read Access Token
 
-| Technology             | Version | Purpose                    |
-| ---------------------- | ------- | -------------------------- |
-| **Node.js**            | Latest  | Runtime environment        |
-| **Nuxt Server Routes** | —       | API endpoints              |
-| **Prisma**             | 5.9.0+  | Database ORM               |
-| **SQLite**             | —       | Development database       |
-| **bcrypt**             | 6.0.0+  | Password hashing           |
-| **JWT**                | 9.0.2+  | Token-based authentication |
+## Environment
 
-## 🏗 Architecture
+Copy `.env.example` to `.env` and replace placeholders. The application reads `NUXT_*` values through Nuxt runtime configuration. Prisma CLI reads `DATABASE_URL` directly from the environment. `TEST_DATABASE_URL` is used only by the integration-test setup and must point to an isolated database whose host or database name contains `test`.
 
-### Project Structure
+| Variable                       | Required for                                                          | Secret? | Purpose                                                                                 |
+| ------------------------------ | --------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                 | Prisma CLI migrations/generation workflows that connect to PostgreSQL | Yes     | PostgreSQL URL used by Prisma CLI; never commit it.                                     |
+| `NUXT_DATABASE_URL`            | Nuxt server runtime                                                   | Yes     | PostgreSQL URL validated by the running application.                                    |
+| `TEST_DATABASE_URL`            | Integration tests                                                     | Yes     | Disposable, isolated PostgreSQL URL for test setup and cleanup.                         |
+| `NUXT_TMDB_ACCESS_TOKEN`       | Nuxt server runtime                                                   | Yes     | Server-side TMDB API Read Access Token. Never expose it to the browser.                 |
+| `NUXT_TMDB_LANGUAGE`           | Nuxt runtime                                                          | No      | TMDB language/locale, default `en-US`.                                                  |
+| `NUXT_TMDB_REGION`             | Nuxt runtime                                                          | No      | ISO 3166-1 alpha-2 region used for TMDB results and ratings, default `US`.              |
+| `NUXT_TMDB_REQUEST_TIMEOUT_MS` | Nuxt runtime                                                          | No      | Provider request timeout from 100 to 30000 milliseconds, default `5000`.                |
+| `NUXT_TMDB_CACHE_TTL_SECONDS`  | Nuxt runtime                                                          | No      | Shared provider cache TTL from 0 to 86400 seconds; `0` disables caching; default `300`. |
+| `NUXT_SESSION_TTL_SECONDS`     | Nuxt runtime                                                          | No      | Session lifetime from 300 to 2592000 seconds, default `604800` (7 days).                |
+| `NODE_ENV`                     | Runtime/tests                                                         | No      | Environment mode; use `production` in production and `test` for tests.                  |
 
-```
-├── app/
-│   ├── assets/css/main.css          # Tailwind layers and custom utilities
-│   ├── components/
-│   │   ├── MediaCard.vue            # Custom media card component
-│   │   ├── SearchBar.vue            # Search input component
-│   │   └── Navigation.vue           # Responsive navigation
-│   ├── layouts/
-│   │   └── default.vue              # Main layout with navigation
-│   ├── middleware/
-│   │   └── auth.global.ts           # Client-side route protection
-│   ├── pages/
-│   │   ├── index.vue                # Home (trending + recommended)
-│   │   ├── movies.vue               # Movies listing
-│   │   ├── tv-series.vue            # TV series listing
-│   │   ├── bookmarked.vue           # Bookmarked content
-│   │   ├── login.vue                # Login page
-│   │   └── signup.vue               # Signup page
-│   ├── schemas/
-│   │   └── auth.ts                  # Zod validation schemas
-│   ├── stores/
-│   │   └── bookmarks.ts             # Pinia bookmark store
-│   └── app.config.ts                # Nuxt UI theming
-├── server/
-│   ├── api/
-│   │   ├── auth/                    # Authentication endpoints
-│   │   ├── media/                   # Media endpoints
-│   │   └── bookmarks/               # Bookmark endpoints
-│   ├── middleware/
-│   │   └── auth.ts                  # Server-side JWT verification
-│   └── utils/
-│       ├── auth.ts                  # Auth utilities
-│       └── prisma.ts                # Prisma client singleton
-├── prisma/
-│   ├── schema.prisma                # Database schema
-│   └── seed.ts                      # Seed script
-└── nuxt.config.ts                   # Nuxt configuration
-```
+Do not place real credentials, tokens, or production URLs in documentation. Values in `.env.example` are placeholders only.
 
-### Database Schema
+## Local database workflow
 
-**Models:**
-
-- **User** — Authentication and profile data
-- **Media** — Movies and TV series information
-- **Bookmark** — User's saved content
-
-**Key Features:**
-
-- Cascade deletes for data integrity
-- Unique constraints for bookmarks
-- Indexed fields for optimized queries
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- **Node.js** 18.x or higher
-- **npm** 9.x or higher
-
-### Installation
-
-1. **Clone the repository**
-
-```bash
-git clone <repository-url>
-cd dont-watch-entertainment-web-app
-```
-
-2. **Install dependencies**
+Install dependencies and generate the Prisma client:
 
 ```bash
 npm install
-```
-
-3. **Set up environment variables**
-
-Create a `.env` file in the root directory:
-
-```env
-NUXT_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
-NUXT_TMDB_ACCESS_TOKEN="replace-with-a-tmdb-api-read-access-token"
-NUXT_TMDB_LANGUAGE="en-US"
-NUXT_TMDB_REGION="US"
-NUXT_TMDB_REQUEST_TIMEOUT_MS="5000"
-NUXT_TMDB_CACHE_TTL_SECONDS="300"
-NUXT_SESSION_TTL_SECONDS="604800"
-NODE_ENV="development"
-```
-
-4. **Initialize database**
-
-```bash
-# Generate Prisma client
 npm run db:generate
-
-# Push schema to database
-npm run db:push
-
-# Seed with sample data
-npm run db:seed
 ```
 
-5. **Start development server**
+For a new local PostgreSQL database, set both `DATABASE_URL` and `NUXT_DATABASE_URL` to the appropriate local connection URL, then apply committed migrations:
 
 ```bash
-npm run dev
+npx prisma migrate deploy
 ```
 
-The application will be available at `http://localhost:3000`
+For local schema development, `npm run db:migrate` runs `prisma migrate dev` and may create a migration. Review and commit generated migrations. `npm run db:push` exists for Prisma schema prototyping only; it is not the migration workflow for shared, CI, or production databases. `npm run db:reset` is destructive and must only be used against an explicitly disposable local database. `npm run db:studio` opens Prisma Studio.
 
-## 📝 Available Scripts
+Production and CI should use `npx prisma migrate deploy`, not `migrate dev` or `db:push`. Before a deployment, take a database backup, inspect `npx prisma migrate status`, verify the migration is present in the artifact, and record the currently deployed version. Rollback preparation requires a tested database restore plan and an application version that remains compatible with the previous schema; Prisma migrations are not automatically reversible.
 
-### Development
+## Session behavior
+
+Signup and login create a random 32-byte opaque token, store only its SHA-256 hash in `Session`, and set the `dont-watch-session` cookie. The cookie is HTTP-only, `SameSite=Lax`, scoped to `/`, and has an expiry based on `NUXT_SESSION_TTL_SECONDS`; it is `Secure` when `NODE_ENV=production`. Logout deletes the database session and clears the cookie. Expired or invalid sessions are rejected and their cookie is cleared. Authentication rate limits remain an unresolved production-readiness decision (OPEN-QUESTION-004); no rate-limit value or implementation is currently defined.
+
+## v1 API
+
+Authentication uses the `dont-watch-session` HTTP-only cookie. “Optional” means the route works anonymously and adds user-specific bookmark enrichment when a valid cookie is present.
+
+| Method   | Path                                              | Authentication | Purpose                                                                             |
+| -------- | ------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------- |
+| `POST`   | `/api/auth/signup`                                | Anonymous      | Create a user and start a session.                                                  |
+| `POST`   | `/api/auth/login`                                 | Anonymous      | Verify credentials and start a session.                                             |
+| `POST`   | `/api/auth/logout`                                | Optional       | Revoke the current session and clear its cookie.                                    |
+| `GET`    | `/api/auth/me`                                    | Required       | Return the authenticated user.                                                      |
+| `GET`    | `/api/media/trending`                             | Optional       | Return normalized TMDB trending movie and TV results.                               |
+| `GET`    | `/api/media/movies`                               | Optional       | Return normalized TMDB movie discovery results.                                     |
+| `GET`    | `/api/media/tv`                                   | Optional       | Return normalized TMDB TV discovery results.                                        |
+| `GET`    | `/api/media/search`                               | Optional       | Search normalized TMDB movie and TV results.                                        |
+| `GET`    | `/api/media/:type/:externalId`                    | Optional       | Return normalized TMDB details and regional rating data; `type` is `MOVIE` or `TV`. |
+| `GET`    | `/api/bookmarks`                                  | Required       | List the authenticated user's bookmarks; supports the validated `page` query.       |
+| `POST`   | `/api/bookmarks`                                  | Required       | Create a bookmark from a normalized media payload.                                  |
+| `DELETE` | `/api/bookmarks/:provider/:externalId/:mediaType` | Required       | Delete the authenticated user's bookmark for a provider identity.                   |
+
+Media list routes return normalized media with pagination metadata. Search additionally requires the validated `q` query. Bookmark routes use the normalized media identity and snapshot fields; they do not accept the obsolete `{ mediaId }` toggle shape.
+
+## Testing and validation
+
+The integration suite requires an isolated PostgreSQL database configured by `TEST_DATABASE_URL`. It applies migrations and performs destructive cleanup only after checking that the connection is test-specific. Tests mock TMDB traffic and must not call the live provider.
 
 ```bash
-npm run dev              # Start development server
-npm run build            # Build for production
-npm run preview          # Preview production build
-npm run typecheck        # Run TypeScript type checking
-```
-
-### Database
-
-```bash
-npm run db:generate      # Generate Prisma client
-npm run db:push          # Push schema changes to database
-npm run db:studio        # Open Prisma Studio (database GUI)
-npm run db:seed          # Seed database with sample data
-npm run db:migrate       # Run database migrations
-npm run db:reset         # Reset database
-```
-
-### Code Quality
-
-```bash
-npm run lint             # Run ESLint
-npm run lint:fix         # Fix ESLint errors automatically
-npm run format           # Format code with Prettier
-npm run format:check     # Check code formatting
-```
-
-### CI/CD
-
-```bash
-npm run ci               # Run all CI checks (lint, typecheck, test, build)
-npm run ci:lint          # Run linting and format checks
-npm run ci:typecheck     # Run type checking
-npm run ci:test          # Run tests
-npm run ci:build         # Build application
-```
-
-## 🎨 Design System
-
-### Color Palette
-
-| Color    | Hex       | Usage                     |
-| -------- | --------- | ------------------------- |
-| White    | `#FFFFFF` | Primary text, icons       |
-| Black    | `#000000` | Contrast elements         |
-| Blue 950 | `#10141E` | Primary dark background   |
-| Blue 900 | `#161D2F` | Secondary dark background |
-| Blue 500 | `#5A698F` | Muted text/elements       |
-| Red 500  | `#FC4747` | Primary accent/CTA        |
-
-### Typography
-
-The app uses the **Outfit** font family with predefined text presets:
-
-- **Preset 1:** Headings (32px desktop / 20px mobile)
-- **Preset 2:** Medium headings (24px desktop / 16px mobile)
-- **Preset 3:** Small headings (18px desktop / 15px mobile)
-- **Preset 4:** Body text (15px)
-- **Preset 5:** Small body (13px)
-- **Preset 6:** Tiny text (11px mobile)
-
-### Responsive Breakpoints
-
-- **Mobile:** < 768px — 2-column grid, bottom navigation
-- **Tablet:** 768px - 1023px — 3-column grid, sidebar navigation
-- **Desktop:** ≥ 1024px — 4-column grid, sidebar navigation
-
-## 🔐 Authentication Flow
-
-1. **Signup/Login:**
-   - Client validates input with Zod schemas
-   - Server hashes password with bcrypt
-   - JWT generated and stored in HTTP-only cookie
-   - User data returned (excluding password)
-
-2. **Protected Routes:**
-   - Client middleware checks for auth token cookie
-   - Server middleware verifies JWT on API requests
-   - Unauthorized requests redirected to login
-
-3. **Logout:**
-   - Server clears authentication cookie
-   - Client redirects to login page
-
-## 📡 API Endpoints
-
-### Authentication
-
-- `POST /api/auth/signup` — Create new user account
-- `POST /api/auth/login` — Authenticate user
-- `POST /api/auth/logout` — Clear authentication
-
-### Media
-
-- `GET /api/media` — Get media (query: `category`, `trending`)
-- `GET /api/media/search` — Search media (query: `q`)
-
-### Bookmarks (Protected)
-
-- `GET /api/bookmarks` — Get user's bookmarked content
-- `POST /api/bookmarks` — Toggle bookmark (body: `{ mediaId }`)
-
-## 🧪 Testing Checklist
-
-- [ ] **Authentication:** Login, signup, logout functionality
-- [ ] **Navigation:** All routes accessible and protected correctly
-- [ ] **Search:** Search works across all media types
-- [ ] **Bookmarks:** Toggle, persist, and display correctly
-- [ ] **Responsive:** Mobile (< 768px), tablet (768-1023px), desktop (≥ 1024px)
-- [ ] **Performance:** Caching works, no unnecessary re-fetches
-- [ ] **Security:** HTTP-only cookies, protected routes, hashed passwords
-
-## 🚀 Deployment
-
-### Environment Variables (Production)
-
-```env
-NUXT_DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/DATABASE"
-NUXT_TMDB_ACCESS_TOKEN="set-in-the-deployment-environment"
-NUXT_TMDB_LANGUAGE="en-US"
-NUXT_TMDB_REGION="US"
-NUXT_TMDB_REQUEST_TIMEOUT_MS="5000"
-NUXT_TMDB_CACHE_TTL_SECONDS="300"
-NUXT_SESSION_TTL_SECONDS="604800"
-NODE_ENV="production"
-```
-
-### Build & Deploy
-
-```bash
-# Build for production
+npm run db:generate
+npx prisma migrate deploy
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
 npm run build
-
-# Preview production build locally
-npm run preview
 ```
 
-For deployment options, see the [Nuxt deployment documentation](https://nuxt.com/docs/getting-started/deployment).
+The complete repository validation is also available as `npm run ci`; it runs lint/format, typecheck, tests, and build. CI uses PostgreSQL 16, Node 22, generates Prisma Client, deploys migrations, runs tests, and builds the application.
 
-## 🤝 Contributing
+## Production checks and deployment
 
-We welcome contributions! Please follow these guidelines:
+Set all required production variables in the deployment environment, with separate secret storage for database URLs and the TMDB token. Run `npm ci`, `npm run db:generate`, `npx prisma migrate deploy`, and `npm run build`, then start the generated Nuxt server using the deployment platform's standard Nuxt/Nitro command. Run `npm run preview` only for a local preview of a production build. Confirm database connectivity, TMDB access, secure cookies, migration status, and the rollback backup/restore plan before releasing.
 
-1. **Fork the repository** and create a feature branch
-2. **Follow the coding standards** outlined in [.github/copilot-instructions.md](.github/copilot-instructions.md)
-3. **Write meaningful commit messages** following [Conventional Commits](https://www.conventionalcommits.org/)
-4. **Test your changes** thoroughly
-5. **Submit a pull request** using the [PR template](.github/pull_request_template.md)
+TMDB is the source of media data. This product uses TMDB APIs and assets subject to [TMDB terms](https://www.themoviedb.org/terms-of-use). Include the following attribution in deployed product documentation or an about/credits surface: “This product uses the TMDB API but is not endorsed or certified by TMDB.”
 
-### Branch Strategy
-
-- `main` — Production-ready code
-- `develop` — Integration branch for features
-- `feature/*` — New features and enhancements
-- `bugfix/*` — Bug fixes
-- `hotfix/*` — Critical production fixes
-
-For detailed branching workflow, see [.github/git-branch-strategy.md](.github/git-branch-strategy.md)
-
-### Coding Standards
-
-- **TypeScript First:** All code must use TypeScript
-- **Nuxt UI First:** Use built-in components before creating custom ones
-- **Security:** Never store sensitive data in localStorage
-- **Validation:** Use Zod schemas for all forms
-- **Caching:** Implement smart caching with `useFetch()`
-
-See [.github/copilot-instructions.md](.github/copilot-instructions.md) for complete coding guidelines.
-
-## 📚 Documentation
-
-- [Copilot Instructions](.github/copilot-instructions.md) — Development guidelines and patterns
-- [Project Backlog](.github/PROJECT_BACKLOG.md) — Feature roadmap and task tracking
-- [Git Branch Strategy](.github/git-branch-strategy.md) — Branching workflow
-- [CI/CD Guide](.github/CI_CD_GUIDE.md) — Pipeline setup and automation
-
-## 🔧 Troubleshooting
-
-### Prisma Client Not Found
+## Development scripts
 
 ```bash
-npm run db:generate
+npm run dev             # Start the Nuxt development server
+npm run format:check    # Check Prettier formatting
+npm run lint            # Run ESLint
+npm run typecheck       # Run Nuxt TypeScript checks
+npm test                # Run all Vitest projects
+npm run build           # Build for production
+npm run db:studio       # Open Prisma Studio
 ```
-
-### Database Locked
-
-Close Prisma Studio and restart the development server.
-
-### Auth Cookie Not Setting
-
-- Verify `secure` flag (requires HTTPS in production)
-- Check `sameSite` settings
-- Clear browser cookies
-
-### Components Not Found
-
-- Verify file is in `components/` directory
-- Check file naming (PascalCase)
-- Restart development server
-
-## 📖 Resources
-
-- [Nuxt 3 Documentation](https://nuxt.com/docs)
-- [Nuxt UI Documentation](https://ui.nuxt.com)
-- [Prisma Documentation](https://www.prisma.io/docs)
-- [Zod Documentation](https://zod.dev)
-- [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [Pinia Documentation](https://pinia.vuejs.org)
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.
-
----
-
-**Last Updated:** January 27, 2026
-
-Built with ❤️ using [Nuxt 3](https://nuxt.com) and [Nuxt UI](https://ui.nuxt.com)
