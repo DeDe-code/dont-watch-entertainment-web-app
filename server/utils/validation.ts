@@ -1,13 +1,13 @@
-import type { ZodType } from 'zod'
+import type { TypeOf, ZodTypeAny } from 'zod'
 import { ApplicationError } from './errors'
 
 export type ValidationSource = 'path' | 'query' | 'body'
 
-export function validate<T>(
-  schema: ZodType<T>,
+export function validate<TSchema extends ZodTypeAny>(
+  schema: TSchema,
   input: unknown,
   source: ValidationSource
-): T {
+): TypeOf<TSchema> {
   const result = schema.safeParse(input)
 
   if (result.success) {
@@ -24,14 +24,23 @@ export function validate<T>(
   throw ApplicationError.invalidInput(fields)
 }
 
-export function validatePath<T>(schema: ZodType<T>, input: unknown): T {
+export function validatePath<TSchema extends ZodTypeAny>(
+  schema: TSchema,
+  input: unknown
+): TypeOf<TSchema> {
   return validate(schema, input, 'path')
 }
 
-export function validateQuery<T>(schema: ZodType<T>, input: unknown): T {
+export function validateQuery<TSchema extends ZodTypeAny>(
+  schema: TSchema,
+  input: unknown
+): TypeOf<TSchema> {
   return validate(schema, input, 'query')
 }
 
-export function validateBody<T>(schema: ZodType<T>, input: unknown): T {
+export function validateBody<TSchema extends ZodTypeAny>(
+  schema: TSchema,
+  input: unknown
+): TypeOf<TSchema> {
   return validate(schema, input, 'body')
 }
