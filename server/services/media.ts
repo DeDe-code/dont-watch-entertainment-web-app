@@ -7,28 +7,60 @@ import {
 import { ApplicationError, ProviderError } from '../utils/errors'
 import { validateQuery, validatePath } from '../utils/validation'
 import { createTmdbClient } from '../providers/tmdb/client'
+import { createBookmarkService } from './bookmarks'
+import { prisma } from '../utils/prisma'
+import type { MediaItem, ProviderIdentity } from '../utils/contracts'
 
 export function createMediaService(config: RuntimeConfig) {
   const tmdb = createTmdbClient(config)
+  const bookmarks = createBookmarkService(prisma)
+
+  async function enrichMedia(
+    media: MediaItem[],
+    userId: string | undefined
+  ): Promise<MediaItem[]> {
+    if (!userId || media.length === 0) {
+      return media.map((item) => ({ ...item, isBookmarked: false }))
+    }
+
+    const identities: ProviderIdentity[] = media.map((item) => ({
+      provider: 'TMDB',
+      externalId: item.externalId,
+      mediaType: item.mediaType
+    }))
+    const bookmarked = await bookmarks.findBookmarkedIdentities(
+      userId,
+      identities
+    )
+
+    return media.map((item) => ({
+      ...item,
+      isBookmarked: bookmarked.has(`TMDB:${item.externalId}:${item.mediaType}`)
+    }))
+  }
 
   return {
-    trending(query: unknown) {
+    async trending(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
-      return tmdb.trending(page)
+      const result = await tmdb.trending(page)
+      return { ...result, data: await enrichMedia(result.data, userId) }
     },
-    movies(query: unknown) {
+    async movies(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
-      return tmdb.discoverMovies(page)
+      const result = await tmdb.discoverMovies(page)
+      return { ...result, data: await enrichMedia(result.data, userId) }
     },
-    tv(query: unknown) {
+    async tv(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
-      return tmdb.discoverTv(page)
+      const result = await tmdb.discoverTv(page)
+      return { ...result, data: await enrichMedia(result.data, userId) }
     },
-    search(query: unknown) {
+    async search(query: unknown, userId?: string) {
       const { page, q } = validateQuery(mediaSearchQuerySchema, query)
-      return tmdb.searchMulti(q, page)
+      const result = await tmdb.searchMulti(q, page)
+      return { ...result, data: await enrichMedia(result.data, userId) }
     },
-    async details(path: unknown) {
+    async details(path: unknown, userId?: string) {
       const { type, externalId } = validatePath(mediaPathSchema, path)
 
       try {
@@ -50,12 +82,11 @@ export function createMediaService(config: RuntimeConfig) {
           regionalRating?.rating ??
           null
 
-        return {
-          data: {
-            ...media,
-            contentRating: contentRating?.trim() || null
-          }
-        }
+        const [data] = await enrichMedia(
+          [{ ...media, contentRating: contentRating?.trim() || null }],
+          userId
+        )
+        return { data }
       } catch (error) {
         if (error instanceof ProviderError && error.code === 'NOT_FOUND') {
           throw ApplicationError.notFound()

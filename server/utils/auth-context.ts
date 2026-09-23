@@ -10,6 +10,10 @@ import {
 export async function getOptionalUser(
   event: H3Event
 ): Promise<SafeUser | null> {
+  if (!event.node?.req?.headers) {
+    return null
+  }
+
   const token = getSessionCookie(event)
   const user = await getSessionUser(token)
 
