@@ -6,7 +6,8 @@ const config = {
   tmdbAccessToken: 'secret-token',
   tmdbLanguage: 'en-US',
   tmdbRegion: 'US',
-  tmdbRequestTimeoutMs: 20
+  tmdbRequestTimeoutMs: 20,
+  tmdbCacheTtlSeconds: 1
 }
 
 function response(body: unknown, status = 200): Response {
@@ -172,5 +173,97 @@ describe('TMDB client', () => {
     await expect(createTmdbClient(config, request).trending()).rejects.toEqual(
       new ProviderError('Provider request timed out', 'TIMEOUT')
     )
+  })
+
+  it('caches identical requests and coalesces concurrent requests', async () => {
+    let resolveRequest: ((value: Response) => void) | undefined
+    const request = vi.fn<typeof fetch>().mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveRequest = resolve
+        })
+    )
+    const client = createTmdbClient(config, request)
+    const first = client.discoverMovies(2)
+    const second = client.discoverMovies(2)
+
+    expect(request).toHaveBeenCalledTimes(1)
+    resolveRequest?.(
+      response({
+        page: 2,
+        total_pages: 2,
+        total_results: 1,
+        results: [movie]
+      })
+    )
+    await expect(Promise.all([first, second])).resolves.toHaveLength(2)
+    await client.discoverMovies(2)
+    expect(request).toHaveBeenCalledTimes(1)
+  })
+
+  it('separates cache keys by page, query, locale, region, and media type', async () => {
+    const request = vi.fn<typeof fetch>().mockImplementation(() =>
+      Promise.resolve(
+        response({
+          page: 1,
+          total_pages: 1,
+          total_results: 0,
+          results: []
+        })
+      )
+    )
+    const client = createTmdbClient(config, request)
+
+    await client.discoverMovies(1)
+    await client.discoverMovies(2)
+    await client.discoverTv(1)
+    await client.searchMulti('space', 1)
+    const urls = request.mock.calls.map(([url]) => String(url))
+
+    expect(new Set(urls).size).toBe(4)
+    expect(urls[0]).toContain('language=en-US')
+    expect(urls[0]).toContain('region=US')
+    expect(urls[1]).toContain('page=2')
+    expect(urls[2]).toContain('/discover/tv')
+    expect(urls[3]).toContain('query=space')
+  })
+
+  it('expires cached entries and never caches provider failures', async () => {
+    vi.useFakeTimers()
+    try {
+      const request = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(response({ results: [] }))
+        .mockResolvedValueOnce(response({ results: [] }))
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(response({ results: [] }))
+      const client = createTmdbClient(config, request)
+
+      await client.movieRatings(1)
+      vi.advanceTimersByTime(1001)
+      await client.movieRatings(1)
+      expect(request).toHaveBeenCalledTimes(2)
+
+      await expect(client.tvRatings(2)).rejects.toMatchObject({
+        code: 'UPSTREAM'
+      })
+      await client.tvRatings(2)
+      expect(request).toHaveBeenCalledTimes(6)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('bounds transient retries to three provider attempts', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response({}, 503))
+
+    await expect(
+      createTmdbClient(config, request).movieDetails(1)
+    ).rejects.toMatchObject({
+      code: 'UPSTREAM'
+    })
+    expect(request).toHaveBeenCalledTimes(3)
   })
 })
