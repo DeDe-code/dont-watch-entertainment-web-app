@@ -14,11 +14,17 @@ import type {
 
 type TmdbConfig = Pick<
   RuntimeConfig,
-  'tmdbAccessToken' | 'tmdbLanguage' | 'tmdbRegion' | 'tmdbRequestTimeoutMs'
+  | 'tmdbAccessToken'
+  | 'tmdbLanguage'
+  | 'tmdbRegion'
+  | 'tmdbRequestTimeoutMs'
+  | 'tmdbCacheTtlSeconds'
 >
 type FetchLike = typeof fetch
+type CacheEntry = { expiresAt: number; value: unknown }
 
 const baseUrl = 'https://api.themoviedb.org/3'
+const maxAttempts = 3
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -72,68 +78,127 @@ export function createTmdbClient(
   config: TmdbConfig,
   request: FetchLike = fetch
 ): TmdbClient {
-  async function get<T>(
-    path: string,
-    params: Record<string, string> = {},
-    parser: (value: unknown) => T
-  ): Promise<T> {
+  const cache = new Map<string, CacheEntry>()
+  const inFlight = new Map<string, Promise<unknown>>()
+
+  function cacheKey(path: string, params: Record<string, string>): string {
     const query = new URLSearchParams({
       language: config.tmdbLanguage,
       region: config.tmdbRegion,
       ...params
     })
-    const controller = new AbortController()
-    const timeout = setTimeout(
-      () => controller.abort(),
-      config.tmdbRequestTimeoutMs
+    return `${path}?${query.toString()}`
+  }
+
+  function shouldRetry(error: unknown): boolean {
+    return (
+      error instanceof ProviderError &&
+      ['TIMEOUT', 'UPSTREAM', 'RATE_LIMITED'].includes(error.code)
     )
+  }
 
-    try {
-      let response: Response
-      try {
-        response = await request(`${baseUrl}${path}?${query}`, {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${config.tmdbAccessToken}`
-          },
-          signal: controller.signal
+  async function get<T>(
+    path: string,
+    params: Record<string, string> = {},
+    parser: (value: unknown) => T
+  ): Promise<T> {
+    const key = cacheKey(path, params)
+    const cached = cache.get(key)
+    if (cached && cached.expiresAt > Date.now()) {
+      return cached.value as T
+    }
+    cache.delete(key)
+
+    const existing = inFlight.get(key)
+    if (existing) {
+      return existing as Promise<T>
+    }
+
+    const operation = (async () => {
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const query = new URLSearchParams({
+          language: config.tmdbLanguage,
+          region: config.tmdbRegion,
+          ...params
         })
-      } catch {
-        if (controller.signal.aborted) {
-          throw new ProviderError('Provider request timed out', 'TIMEOUT')
+        const controller = new AbortController()
+        const timeout = setTimeout(
+          () => controller.abort(),
+          config.tmdbRequestTimeoutMs
+        )
+
+        try {
+          let response: Response
+          try {
+            response = await request(`${baseUrl}${path}?${query}`, {
+              headers: {
+                Accept: 'application/json',
+                Authorization: `Bearer ${config.tmdbAccessToken}`
+              },
+              signal: controller.signal
+            })
+          } catch {
+            if (controller.signal.aborted) {
+              throw new ProviderError('Provider request timed out', 'TIMEOUT')
+            }
+            throw new ProviderError('Provider request failed', 'UPSTREAM')
+          }
+
+          if (response.status === 401 || response.status === 403) {
+            throw new ProviderError(
+              'Provider authentication failed',
+              'AUTHENTICATION'
+            )
+          }
+          if (response.status === 404) {
+            throw new ProviderError(
+              'Provider resource was not found',
+              'NOT_FOUND'
+            )
+          }
+          if (response.status === 429) {
+            throw new ProviderError(
+              'Provider rate limit exceeded',
+              'RATE_LIMITED'
+            )
+          }
+          if (!response.ok || response.status >= 500) {
+            throw new ProviderError('Provider request failed', 'UPSTREAM')
+          }
+
+          let body: unknown
+          try {
+            body = await response.json()
+          } catch {
+            throw new ProviderError(
+              'Provider returned malformed JSON',
+              'INVALID_RESPONSE'
+            )
+          }
+
+          const value = parser(body)
+          if (config.tmdbCacheTtlSeconds > 0) {
+            cache.set(key, {
+              value,
+              expiresAt: Date.now() + config.tmdbCacheTtlSeconds * 1000
+            })
+          }
+          return value
+        } catch (error) {
+          if (attempt === maxAttempts || !shouldRetry(error)) {
+            throw error
+          }
+        } finally {
+          clearTimeout(timeout)
         }
-        throw new ProviderError('Provider request failed', 'UPSTREAM')
       }
-
-      if (response.status === 401 || response.status === 403) {
-        throw new ProviderError(
-          'Provider authentication failed',
-          'AUTHENTICATION'
-        )
-      }
-      if (response.status === 404) {
-        throw new ProviderError('Provider resource was not found', 'NOT_FOUND')
-      }
-      if (response.status === 429) {
-        throw new ProviderError('Provider rate limit exceeded', 'RATE_LIMITED')
-      }
-      if (!response.ok || response.status >= 500) {
-        throw new ProviderError('Provider request failed', 'UPSTREAM')
-      }
-
-      let body: unknown
-      try {
-        body = await response.json()
-      } catch {
-        throw new ProviderError(
-          'Provider returned malformed JSON',
-          'INVALID_RESPONSE'
-        )
-      }
-
-      return parser(body)
+      throw new ProviderError('Provider request failed', 'UPSTREAM')
+    })()
+    inFlight.set(key, operation)
+    try {
+      return (await operation) as T
     } finally {
-      clearTimeout(timeout)
+      inFlight.delete(key)
     }
   }
 
