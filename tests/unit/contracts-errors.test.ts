@@ -130,4 +130,14 @@ describe('application errors', () => {
       toApplicationError({ code: 'P2002', meta: { target: ['email'] } }).code
     ).toBe('CONFLICT')
   })
+  it('maps unexpected errors to a safe internal error', () => {
+    const error = toNitroError(
+      new Error('unexpected sensitive implementation detail')
+    )
+
+    expect(error.statusCode).toBe(500)
+    expect(error.statusMessage).toBe('An unexpected error occurred')
+    expect(error.data).toEqual({ code: 'INTERNAL_ERROR' })
+    expect(error.message).not.toContain('sensitive')
+  })
 })
