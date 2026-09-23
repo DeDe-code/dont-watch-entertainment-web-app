@@ -75,8 +75,11 @@ export class ApplicationError extends Error {
   static database(): ApplicationError {
     return new ApplicationError('DATABASE_ERROR')
   }
-}
 
+  static internal(): ApplicationError {
+    return new ApplicationError('INTERNAL_ERROR')
+  }
+}
 export type ProviderErrorCode =
   | 'TIMEOUT'
   | 'AUTHENTICATION'
@@ -124,7 +127,7 @@ export function toApplicationError(error: unknown): ApplicationError {
     return ApplicationError.notFound()
   }
 
-  return ApplicationError.database()
+  return ApplicationError.internal()
 }
 
 export function toNitroError(error: unknown): H3Error {
