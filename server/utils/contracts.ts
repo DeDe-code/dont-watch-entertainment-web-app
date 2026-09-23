@@ -26,7 +26,7 @@ const pageSchema = z.coerce.number().int().positive().max(500)
 
 export const paginationMetaSchema = z.object({
   page: pageSchema,
-  totalPages: z.coerce.number().int().nonnegative().max(500),
+  totalPages: z.coerce.number().int().nonnegative(),
   totalResults: z.coerce.number().int().nonnegative()
 })
 export type PaginationMeta = z.infer<typeof paginationMetaSchema>

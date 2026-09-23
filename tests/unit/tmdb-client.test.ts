@@ -77,7 +77,24 @@ describe('TMDB client', () => {
       ]
     })
   })
+  it('accepts provider total pages above the client request limit', async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(
+      response({
+        page: 1,
+        total_pages: 1001,
+        total_results: 20001,
+        results: [tv]
+      })
+    )
 
+    const result = await createTmdbClient(config, request).discoverTv()
+
+    expect(result.meta).toEqual({
+      page: 1,
+      totalPages: 1001,
+      totalResults: 20001
+    })
+  })
   it('filters people and unsupported media from multi-search', async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(
       response({
