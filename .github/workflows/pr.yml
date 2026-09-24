@@ -42,14 +42,30 @@ jobs:
           script: |
             const title = context.payload.pull_request.title;
             const body = context.payload.pull_request.body ?? '';
+            const pullNumber = context.payload.pull_request.number;
             const pattern = /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .{1,100}$/;
             // Allow the PR body summary to satisfy the check when automation generates a human-readable PR title.
             const firstBodyLine = body
               .split('\n')
               .map((line) => line.trim())
               .find(Boolean);
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const changedFiles = await github.paginate(github.rest.pulls.listFiles, {
+              owner,
+              repo,
+              pull_number: pullNumber,
+              per_page: 100,
+            });
+            const docsOnlyChange =
+              changedFiles.length > 0 &&
+              changedFiles.every(({ filename }) =>
+                filename.startsWith('docs/') ||
+                filename.startsWith('.github/agents/') ||
+                filename.endsWith('.md')
+              );
 
-            if (!pattern.test(title) && !pattern.test(firstBodyLine ?? '')) {
+            if (!pattern.test(title) && !pattern.test(firstBodyLine ?? '') && !docsOnlyChange) {
               core.setFailed(
                 '❌ PR title or the first non-empty line of the PR body must follow Conventional Commits format:\n\n' +
                 'Examples:\n' +
