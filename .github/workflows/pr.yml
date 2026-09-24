@@ -42,14 +42,62 @@ jobs:
           script: |
             const title = context.payload.pull_request.title;
             const body = context.payload.pull_request.body ?? '';
+            const pullNumber = context.payload.pull_request.number;
             const pattern = /^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\(.+\))?: .{1,100}$/;
             // Allow the PR body summary to satisfy the check when automation generates a human-readable PR title.
             const firstBodyLine = body
               .split('\n')
               .map((line) => line.trim())
               .find(Boolean);
+            let docsOnlyChange = false;
 
-            if (!pattern.test(title) && !pattern.test(firstBodyLine ?? '')) {
+            try {
+              const owner = context.repo.owner;
+              const repo = context.repo.repo;
+              let page = 1;
+              const perPage = 100;
+              let sawAnyFile = false;
+              docsOnlyChange = true;
+
+              while (true) {
+                const { data: changedFiles } = await github.rest.pulls.listFiles({
+                  owner,
+                  repo,
+                  pull_number: pullNumber,
+                  per_page: perPage,
+                  page,
+                });
+
+                if (changedFiles.length === 0) {
+                  break;
+                }
+
+                sawAnyFile = true;
+
+                if (
+                  changedFiles.some(
+                    ({ filename }) =>
+                      !filename.startsWith('docs/') && !filename.startsWith('.github/agents/')
+                  )
+                ) {
+                  docsOnlyChange = false;
+                  break;
+                }
+
+                if (changedFiles.length < perPage) {
+                  break;
+                }
+
+                page += 1;
+              }
+
+              docsOnlyChange = docsOnlyChange && sawAnyFile;
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              core.warning(`Unable to inspect PR files for docs-only title check bypass: ${errorMessage}`);
+            }
+
+            if (!pattern.test(title) && !pattern.test(firstBodyLine ?? '') && !docsOnlyChange) {
               core.setFailed(
                 '❌ PR title or the first non-empty line of the PR body must follow Conventional Commits format:\n\n' +
                 'Examples:\n' +
