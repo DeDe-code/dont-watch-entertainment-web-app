@@ -22,6 +22,7 @@ type TmdbConfig = Pick<
 >
 type FetchLike = typeof fetch
 type CacheEntry = { expiresAt: number; value: unknown }
+type RatingCacheEntry = { expiresAt: number; value: string | null }
 
 const baseUrl = 'https://api.themoviedb.org/3'
 const maxAttempts = 3
@@ -79,6 +80,7 @@ export function createTmdbClient(
   request: FetchLike = fetch
 ): TmdbClient {
   const cache = new Map<string, CacheEntry>()
+  const ratingCache = new Map<string, RatingCacheEntry>()
   const inFlight = new Map<string, Promise<unknown>>()
 
   function cacheKey(path: string, params: Record<string, string>): string {
@@ -208,6 +210,33 @@ export function createTmdbClient(
     )
 
   return {
+    resolveContentRating: async (mediaType, id) => {
+      const key = `${mediaType}:${id}`
+      const cached = ratingCache.get(key)
+      if (cached && cached.expiresAt > Date.now()) return cached.value
+      ratingCache.delete(key)
+
+      const ratings =
+        mediaType === 'MOVIE'
+          ? await get(`/movie/${id}/release_dates`, {}, parseRatings)
+          : await get(`/tv/${id}/content_ratings`, {}, parseRatings)
+      const regionalRating = ratings.results.find(
+        (result) => result.iso_3166_1 === config.tmdbRegion
+      )
+      const value =
+        regionalRating?.release_dates?.find((release) =>
+          release.certification?.trim()
+        )?.certification ??
+        regionalRating?.rating ??
+        null
+      const normalized = value?.trim() || null
+      ratingCache.set(key, {
+        value: normalized,
+        expiresAt:
+          Date.now() + (normalized ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000)
+      })
+      return normalized
+    },
     trending: (pageNumber = 1) =>
       get('/trending/all/day', { page: String(pageNumber) }, parsePage).then(
         (result) => {

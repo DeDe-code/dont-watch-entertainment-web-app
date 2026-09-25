@@ -15,6 +15,34 @@ export function createMediaService(config: RuntimeConfig) {
   const tmdb = createTmdbClient(config)
   const bookmarks = createBookmarkService(prisma)
 
+  async function enrichRatings(media: MediaItem[]): Promise<MediaItem[]> {
+    const enriched = new Array<MediaItem>(media.length)
+    let nextIndex = 0
+    async function worker() {
+      while (true) {
+        const index = nextIndex++
+        if (index >= media.length) return
+        const item = media[index]
+        if (!item) return
+        try {
+          enriched[index] = {
+            ...item,
+            contentRating: await tmdb.resolveContentRating(
+              item.mediaType,
+              item.externalId
+            )
+          }
+        } catch {
+          enriched[index] = { ...item, contentRating: null }
+        }
+      }
+    }
+    await Promise.all(
+      Array.from({ length: Math.min(5, media.length) }, () => worker())
+    )
+    return enriched
+  }
+
   async function enrichMedia(
     media: MediaItem[],
     userId: string | undefined
@@ -43,44 +71,45 @@ export function createMediaService(config: RuntimeConfig) {
     async trending(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
       const result = await tmdb.trending(page)
-      return { ...result, data: await enrichMedia(result.data, userId) }
+      return {
+        ...result,
+        data: await enrichMedia(await enrichRatings(result.data), userId)
+      }
     },
     async movies(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
       const result = await tmdb.discoverMovies(page)
-      return { ...result, data: await enrichMedia(result.data, userId) }
+      return {
+        ...result,
+        data: await enrichMedia(await enrichRatings(result.data), userId)
+      }
     },
     async tv(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
       const result = await tmdb.discoverTv(page)
-      return { ...result, data: await enrichMedia(result.data, userId) }
+      return {
+        ...result,
+        data: await enrichMedia(await enrichRatings(result.data), userId)
+      }
     },
     async search(query: unknown, userId?: string) {
       const { page, q } = validateQuery(mediaSearchQuerySchema, query)
       const result = await tmdb.searchMulti(q, page)
-      return { ...result, data: await enrichMedia(result.data, userId) }
+      return {
+        ...result,
+        data: await enrichMedia(await enrichRatings(result.data), userId)
+      }
     },
     async details(path: unknown, userId?: string) {
       const { type, externalId } = validatePath(mediaPathSchema, path)
 
       try {
-        const [media, ratings] = await Promise.all([
+        const [media, contentRating] = await Promise.all([
           type === 'MOVIE'
             ? tmdb.movieDetails(externalId)
             : tmdb.tvDetails(externalId),
-          type === 'MOVIE'
-            ? tmdb.movieRatings(externalId)
-            : tmdb.tvRatings(externalId)
+          tmdb.resolveContentRating(type, externalId)
         ])
-        const regionalRating = ratings.results.find(
-          (result) => result.iso_3166_1 === config.tmdbRegion
-        )
-        const contentRating =
-          regionalRating?.release_dates?.find((release) =>
-            release.certification?.trim()
-          )?.certification ??
-          regionalRating?.rating ??
-          null
 
         const [data] = await enrichMedia(
           [{ ...media, contentRating: contentRating?.trim() || null }],

@@ -41,4 +41,8 @@ export type TmdbClient = {
   tvDetails(id: number): Promise<MediaItem>
   movieRatings(id: number): Promise<TmdbRatingResponse>
   tvRatings(id: number): Promise<TmdbRatingResponse>
+  resolveContentRating(
+    mediaType: 'MOVIE' | 'TV',
+    id: number
+  ): Promise<string | null>
 }

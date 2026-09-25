@@ -36,6 +36,61 @@ const tv = {
 }
 
 describe('TMDB client', () => {
+  it('resolves configured-region movie and TV ratings and caches missing ratings', async () => {
+    const request = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        response({
+          results: [
+            { iso_3166_1: 'GB', release_dates: [{ certification: '12' }] },
+            { iso_3166_1: 'US', release_dates: [{ certification: 'PG-13' }] }
+          ]
+        })
+      )
+      .mockResolvedValueOnce(
+        response({ results: [{ iso_3166_1: 'US', rating: 'TV-14' }] })
+      )
+      .mockResolvedValueOnce(
+        response({ results: [{ iso_3166_1: 'GB', release_dates: [] }] })
+      )
+    const client = createTmdbClient(config, request)
+
+    await expect(client.resolveContentRating('MOVIE', 1)).resolves.toBe('PG-13')
+    await expect(client.resolveContentRating('TV', 2)).resolves.toBe('TV-14')
+    await expect(client.resolveContentRating('MOVIE', 3)).resolves.toBeNull()
+    await expect(client.resolveContentRating('MOVIE', 3)).resolves.toBeNull()
+    expect(request).toHaveBeenCalledTimes(3)
+  })
+
+  it('reuses successful ratings for 24 hours and retries provider failures', async () => {
+    vi.useFakeTimers()
+    try {
+      const request = vi
+        .fn<typeof fetch>()
+        .mockResolvedValueOnce(
+          response({ results: [{ iso_3166_1: 'US', rating: 'TV-MA' }] })
+        )
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(response({}, 500))
+        .mockResolvedValueOnce(
+          response({ results: [{ iso_3166_1: 'US', rating: 'TV-14' }] })
+        )
+      const client = createTmdbClient(config, request)
+
+      await expect(client.resolveContentRating('TV', 4)).resolves.toBe('TV-MA')
+      await expect(client.resolveContentRating('TV', 4)).resolves.toBe('TV-MA')
+      expect(request).toHaveBeenCalledTimes(1)
+      await expect(client.resolveContentRating('TV', 5)).rejects.toMatchObject({
+        code: 'UPSTREAM'
+      })
+      await expect(client.resolveContentRating('TV', 5)).resolves.toBe('TV-14')
+      expect(request).toHaveBeenCalledTimes(5)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('normalizes movie and TV payloads to the shared contract', async () => {
     const request = vi
       .fn<typeof fetch>()
