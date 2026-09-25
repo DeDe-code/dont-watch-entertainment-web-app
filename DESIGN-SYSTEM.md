@@ -1,10 +1,10 @@
 # Design System Documentation
 
-This document outlines the complete design system for the Entertainment Web App, built entirely on **Nuxt UI** using CSS variables and the `@theme` directive.
+This document outlines the design system for the Entertainment Web App, implemented with CSS variables and the `@theme` directive. Nuxt UI is available infrastructure, while semantic custom markup is preferred when it expresses a Figma component more accurately.
 
 ## Design Philosophy
 
-This design system is built **exclusively with Nuxt UI**, using CSS variables in the `@theme` directive for all customizations. **No tailwind.config.ts file is used** to avoid conflicts with Nuxt UI's internal Tailwind configuration. All design tokens (colors, spacing, typography) are defined using CSS variables in [main.css](app/assets/css/main.css).
+All design tokens (colors, spacing, typography) are defined using CSS variables in [main.css](app/assets/css/main.css). **No tailwind.config.ts file is used**; Nuxt UI and Tailwind consume the shared `@theme` tokens.
 
 ## Color Palette
 
@@ -55,7 +55,7 @@ Black gradients are used for overlays:
 
 ### Font Family
 
-The app uses **Outfit** font from Google Fonts as the default font with weights:
+The app uses **Outfit** as the default font with build-managed loading and only these weights:
 
 - **Light:** 300
 - **Regular:** 400
@@ -67,22 +67,25 @@ Outfit is set as `--font-sans: 'Outfit', sans-serif` in the `@theme` directive, 
 
 #### Desktop
 
-| Preset   | Size | Line Height | Letter Spacing | Usage           | CSS Class        |
-| -------- | ---- | ----------- | -------------- | --------------- | ---------------- |
-| Preset 1 | 32px | 125%        | -0.5px         | Large headings  | `.text-preset-1` |
-| Preset 2 | 24px | 125%        | 0px            | Medium headings | `.text-preset-2` |
-| Preset 3 | 18px | 125%        | 0px            | Small headings  | `.text-preset-3` |
-| Preset 4 | 15px | 125%        | 0px            | Body text       | `.text-preset-4` |
-| Preset 5 | 13px | 125%        | 0px            | Small body text | `.text-preset-5` |
+| Preset            | Size | Line Height | Letter Spacing | Weight | Usage           | CSS Class                                 |
+| ----------------- | ---- | ----------- | -------------- | ------ | --------------- | ----------------------------------------- |
+| Preset 1          | 32px | 1.25        | -0.5px         | 300    | Large headings  | `.text-preset-1`                          |
+| Preset 2 (Medium) | 24px | 1.25        | 0px            | 500    | Medium headings | `.text-preset-2-medium`                   |
+| Preset 2 (Light)  | 24px | 1.25        | 0px            | 300    | Light headings  | `.text-preset-2-light` / `.text-preset-2` |
+| Preset 3          | 18px | 1.25        | 0px            | 500    | Small headings  | `.text-preset-3`                          |
+| Preset 4          | 15px | 1.25        | 0px            | 300    | Body text       | `.text-preset-4`                          |
+| Preset 5          | 13px | 1.25        | 0px            | 300    | Small body text | `.text-preset-5`                          |
 
 #### Mobile
 
-| Preset          | Size | Line Height | Letter Spacing | Usage           | CSS Class               |
-| --------------- | ---- | ----------- | -------------- | --------------- | ----------------------- |
-| Preset 1 Mobile | 20px | 125%        | -0.3px         | Large headings  | `.text-preset-1-mobile` |
-| Preset 2 Mobile | 16px | 125%        | 0px            | Medium headings | `.text-preset-2-mobile` |
-| Preset 3 Mobile | 15px | 125%        | 0px            | Small headings  | `.text-preset-3-mobile` |
-| Preset 6 Mobile | 11px | 125%        | 0px            | Tiny text       | `.text-preset-6-mobile` |
+| Preset   | Size | Line Height | Letter Spacing | Weight | Usage              | CSS Class               |
+| -------- | ---- | ----------- | -------------- | ------ | ------------------ | ----------------------- |
+| Preset 1 | 20px | 1.25        | -0.3px         | 300    | Large headings     | `.text-preset-1-mobile` |
+| Preset 2 | 16px | 1.25        | 0px            | 300    | Medium headings    | `.text-preset-2-mobile` |
+| Preset 3 | 15px | 1.25        | 0px            | 500    | Small headings     | `.text-preset-3-mobile` |
+| Preset 4 | 14px | 1.25        | 0px            | 500    | Body text          | `.text-preset-4-mobile` |
+| Preset 5 | 12px | 1.25        | 0px            | 300    | Small body text    | `.text-preset-5-mobile` |
+| Preset 6 | 11px | 1.25        | 0px            | 300    | Smallest body text | `.text-preset-6-mobile` |
 
 ### Usage Examples
 
@@ -317,8 +320,10 @@ Badges for categories or status:
 
 ### Navigation
 
-- **Mobile (< 768px):** Bottom navigation bar
-- **Tablet & Desktop (≥ 768px):** Left sidebar navigation
+- **Desktop (≥ 1024px):** Left vertical sidebar navigation, 96px wide, with a 20px radius and a Blue 900 surface.
+- **Tablet (768px - 1023px):** Top horizontal navigation.
+- **Mobile (< 768px):** Top horizontal navigation.
+- **Bottom navigation is not used.**
 
 ```vue
 <template>
@@ -328,11 +333,11 @@ Badges for categories or status:
 </template>
 
 <script setup>
-const isMobile = ref(false)
+const isDesktop = ref(false)
 
 const navClass = computed(() => {
-  if (isMobile.value) {
-    return 'fixed bottom-0 left-0 right-0 bg-blue-900 flex items-center px-4 py-4 z-50'
+  if (!isDesktop.value) {
+    return 'fixed left-0 right-0 top-0 bg-blue-900 flex items-center px-4 py-4 z-50'
   }
   return 'fixed left-0 top-0 bottom-0 bg-blue-900 flex flex-col items-center py-8 px-6 z-50 w-24'
 })
@@ -360,12 +365,15 @@ const navClass = computed(() => {
   --color-red-500: #fc4747;
 
   /* Custom Spacing */
+  --spacing-0: 0px;
   --spacing-100: 8px;
   --spacing-200: 16px;
   --spacing-300: 24px;
   --spacing-400: 32px;
   --spacing-500: 40px;
+  --spacing-600: 48px;
   --spacing-700: 56px;
+  --spacing-800: 64px;
   --spacing-900: 72px;
   --spacing-1000: 80px;
 }
@@ -398,7 +406,7 @@ export default defineAppConfig({
 - ✅ Creating buttons (UButton)
 - ✅ Displaying cards (UCard)
 - ✅ Showing badges or labels (UBadge)
-- ✅ Any component Nuxt UI provides
+- ✅ A Nuxt UI primitive matches the required semantic and visual behavior
 
 ### Use Custom HTML + Tailwind When:
 
@@ -410,12 +418,12 @@ export default defineAppConfig({
 ### Customization Approach:
 
 ```vue
-<!-- PREFERRED: Use Nuxt UI with :ui prop -->
+<!-- Prefer Nuxt UI when its primitive matches the design -->
 <UButton color="primary" :ui="{ rounded: 'rounded-md', font: 'font-light' }">
   Click me
 </UButton>
 
-<!-- ACCEPTABLE: Custom when needed -->
+<!-- Prefer semantic custom markup when the design needs it -->
 <button class="bg-red-500 text-white px-300 py-200 rounded-md font-light">
   Click me
 </button>
@@ -423,15 +431,12 @@ export default defineAppConfig({
 
 ## Accessibility Guidelines
 
-1. **Color Contrast:** Ensure text meets WCAG AA standards:
-   - White (#FFFFFF) on Blue 950 (#10141E): ✅ AAA
-   - Blue 500 (#5A698F) on Blue 950 (#10141E): ✅ AA
-   - Red 500 (#FC4747) on Blue 950 (#10141E): ✅ AA
+1. **Color Contrast:** White on Blue 950 is the primary high-contrast text pairing. Blue 500 and Red 500 are Figma palette tokens, but their contrast suitability varies by text size and use; verify each pairing against WCAG before presenting it as compliant.
 
 2. **Focus States:** All interactive elements must have visible focus indicators:
 
    ```vue
-   <button class="focus:outline-none focus:ring-2 focus:ring-red-500">
+   <button class="focus-visible:outline-2 focus-visible:outline-red-500">
      Click me
    </button>
    ```

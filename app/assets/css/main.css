@@ -1,11 +1,9 @@
 /* Design System: Colors, Typography, and Spacing */
-/* Import Outfit font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&display=swap');
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
 @theme {
-  /* Typography - Outfit Font */
+  /* Typography - Outfit is loaded by @nuxt/fonts. */
   --font-sans: 'Outfit', sans-serif;
 
   /* Custom Blue Shades */
@@ -16,15 +14,18 @@
   /* Custom Red Shade */
   --color-red-500: #fc4747;
 
-  /* Custom Spacing Scale - Tailwind will generate utilities like w-spacing-400 */
-  --spacing-spacing-100: 8px;
-  --spacing-spacing-200: 16px;
-  --spacing-spacing-300: 24px;
-  --spacing-spacing-400: 32px;
-  --spacing-spacing-500: 40px;
-  --spacing-spacing-700: 56px;
-  --spacing-spacing-900: 72px;
-  --spacing-spacing-1000: 80px;
+  /* Figma spacing scale. */
+  --spacing-0: 0px;
+  --spacing-100: 8px;
+  --spacing-200: 16px;
+  --spacing-300: 24px;
+  --spacing-400: 32px;
+  --spacing-500: 40px;
+  --spacing-600: 48px;
+  --spacing-700: 56px;
+  --spacing-800: 64px;
+  --spacing-900: 72px;
+  --spacing-1000: 80px;
 
   /* Custom card sizes */
   --max-width-login-card-mobile: 327px;
@@ -34,6 +35,11 @@
 }
 
 @layer base {
+  :where(button, a, input, select, textarea):focus-visible {
+    outline: 2px solid var(--color-red-500);
+    outline-offset: 2px;
+  }
+
   body {
     background-color: var(--color-blue-950);
     color: #ffffff;
@@ -42,66 +48,102 @@
 
 /* Custom Text Preset Utilities */
 @layer utilities {
-  /* Text Preset 1 - Desktop Headings (32px) */
+  /* Desktop text presets. */
   .text-preset-1 {
     font-size: 32px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: -0.5px;
+    font-weight: 300;
   }
 
   /* Text Preset 1 - Mobile (20px) */
   .text-preset-1-mobile {
     font-size: 20px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: -0.3px;
+    font-weight: 300;
   }
 
-  /* Text Preset 2 - Medium Headings (24px) */
+  /* Text Preset 2 - Light (24px) */
   .text-preset-2 {
     font-size: 24px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 300;
+  }
+
+  .text-preset-2-light {
+    font-size: 24px;
+    line-height: 1.25;
+    letter-spacing: 0px;
+    font-weight: 300;
+  }
+
+  .text-preset-2-medium {
+    font-size: 24px;
+    line-height: 1.25;
+    letter-spacing: 0px;
+    font-weight: 500;
   }
 
   /* Text Preset 2 - Mobile (16px) */
   .text-preset-2-mobile {
     font-size: 16px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 300;
   }
 
   /* Text Preset 3 - Small Headings (18px) */
   .text-preset-3 {
     font-size: 18px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 500;
   }
 
   /* Text Preset 3 - Mobile (15px) */
   .text-preset-3-mobile {
     font-size: 15px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 500;
   }
 
   /* Text Preset 4 - Body Text (15px) */
   .text-preset-4 {
     font-size: 15px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 300;
   }
 
   /* Text Preset 5 - Small Body (13px) */
   .text-preset-5 {
     font-size: 13px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 300;
   }
 
-  /* Text Preset 6 - Mobile Tiny Text (11px) */
+  .text-preset-4-mobile {
+    font-size: 14px;
+    line-height: 1.25;
+    letter-spacing: 0px;
+    font-weight: 500;
+  }
+
+  .text-preset-5-mobile {
+    font-size: 12px;
+    line-height: 1.25;
+    letter-spacing: 0px;
+    font-weight: 300;
+  }
+
   .text-preset-6-mobile {
     font-size: 11px;
-    line-height: 125%;
+    line-height: 1.25;
     letter-spacing: 0px;
+    font-weight: 300;
   }
 }

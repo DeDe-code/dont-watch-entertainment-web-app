@@ -1,6 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/ui'],
+  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/ui'],
 
   // Enable Nuxt DevTools for an in-browser developer panel during local dev
   devtools: {
@@ -38,6 +38,15 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
+  },
+
+  fonts: {
+    families: [
+      {
+        name: 'Outfit',
+        weights: [300, 400, 500]
+      }
+    ]
   },
 
   // Register custom SVG icon collections so they can be referenced via i-custom-* class names

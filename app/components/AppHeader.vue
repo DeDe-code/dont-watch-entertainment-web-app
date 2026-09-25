@@ -42,10 +42,7 @@ const items = computed<NavigationMenuItem[]>(() => [
     <UHeader :toggle="false">
       <!-- Left slot: app logo linking back to the home page -->
       <template #left>
-        <UIcon
-          name="i-custom-logo"
-          class="w-spacing-400 h-[27px] text-red-500"
-        />
+        <UIcon name="i-custom-logo" class="w-400 h-[27px] text-red-500" />
       </template>
 
       <!-- Centre slot (default): horizontal navigation links -->

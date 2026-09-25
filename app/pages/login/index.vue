@@ -36,14 +36,11 @@ const fields: AuthFormField[] = [
   <!-- Page root -->
   <div>
     <!-- Centred column: logo on top, auth form below -->
-    <div class="flex flex-col justify-center items-center mt-spacing-700">
+    <div class="flex flex-col justify-center items-center mt-700">
       <!-- App logo: clicking it navigates back to the home page -->
       <div>
         <NuxtLink to="/">
-          <UIcon
-            name="i-custom-logo"
-            class="w-spacing-400 h-[27px] text-red-500"
-          />
+          <UIcon name="i-custom-logo" class="w-400 h-[27px] text-red-500" />
         </NuxtLink>
       </div>
 
