@@ -1,4 +1,4 @@
-import type { MediaItem, PaginationMeta } from '../../utils/contracts'
+import type { MediaItem, PaginationMeta } from '../../../shared/contracts'
 
 export type TmdbResult = {
   id: number

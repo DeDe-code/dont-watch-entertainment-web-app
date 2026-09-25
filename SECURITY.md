@@ -29,7 +29,7 @@ If you discover a security vulnerability within this project, please send an ema
 
 This project follows these security practices:
 
-1. **Authentication**: JWT tokens stored in HTTP-only cookies
+1. **Authentication**: Opaque, database-backed sessions stored through HTTP-only cookies
 2. **Password Security**: Bcrypt hashing with salt rounds ≥ 10
 3. **Input Validation**: Zod schemas for all user inputs
 4. **Database Security**: Prisma ORM prevents SQL injection

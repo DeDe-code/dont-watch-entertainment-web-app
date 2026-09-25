@@ -1,5 +1,5 @@
 // Prisma schema — defines the database structure for the entertainment web app.
-// Run `npx prisma generate` after changes, then `npx prisma db push` to apply.
+// Create and apply committed migrations with `npx prisma migrate dev`, then run `npx prisma generate`.
 
 // Generator: produce the Prisma Client for Node.js
 generator client {

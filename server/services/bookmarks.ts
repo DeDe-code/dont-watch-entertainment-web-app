@@ -1,5 +1,5 @@
 import type { Prisma, PrismaClient } from '@prisma/client'
-import type { MediaItem, ProviderIdentity } from '../utils/contracts'
+import type { MediaItem, ProviderIdentity } from '../../shared/contracts'
 
 type DbClient = PrismaClient | Prisma.TransactionClient
 

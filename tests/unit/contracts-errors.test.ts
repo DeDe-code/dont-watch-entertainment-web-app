@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest'
 import {
   loginInputSchema,
   mediaItemSchema,
-  mediaPathSchema,
-  mediaQuerySchema,
   paginationMetaSchema,
   providerIdentitySchema,
   signupInputSchema
-} from '../../server/utils/contracts'
+} from '../../shared/contracts'
+import { mediaPathSchema, mediaQuerySchema } from '../../server/utils/contracts'
 import {
   ApplicationError,
   ProviderError,

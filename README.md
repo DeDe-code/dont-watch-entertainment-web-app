@@ -4,7 +4,7 @@ Nuxt 4 full-stack entertainment application. The server uses Nitro API routes, P
 
 ## Stack and architecture
 
-- Nuxt 4, Vue 3, TypeScript, Nuxt UI, Tailwind CSS, and Pinia
+- Nuxt 4, Vue 3, TypeScript, Nuxt UI, and Tailwind CSS
 - Nitro server routes with Zod validation
 - PostgreSQL accessed through Prisma
 - TMDB for trending, discovery, search, details, and ratings

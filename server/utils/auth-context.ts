@@ -1,11 +1,7 @@
 import type { H3Event } from 'h3'
 import { ApplicationError } from './errors'
-import {
-  clearSessionCookie,
-  getSessionCookie,
-  getSessionUser,
-  type SafeUser
-} from './auth'
+import { clearSessionCookie, getSessionCookie, getSessionUser } from './auth'
+import type { SafeUser } from '../../shared/contracts'
 
 export async function getOptionalUser(
   event: H3Event

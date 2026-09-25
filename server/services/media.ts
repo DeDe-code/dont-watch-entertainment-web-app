@@ -4,12 +4,12 @@ import {
   mediaPathSchema,
   mediaSearchQuerySchema
 } from '../utils/contracts'
+import type { MediaItem, ProviderIdentity } from '../../shared/contracts'
 import { ApplicationError, ProviderError } from '../utils/errors'
 import { validateQuery, validatePath } from '../utils/validation'
 import { createTmdbClient } from '../providers/tmdb/client'
 import { createBookmarkService } from './bookmarks'
 import { prisma } from '../utils/prisma'
-import type { MediaItem, ProviderIdentity } from '../utils/contracts'
 
 export function createMediaService(config: RuntimeConfig) {
   const tmdb = createTmdbClient(config)

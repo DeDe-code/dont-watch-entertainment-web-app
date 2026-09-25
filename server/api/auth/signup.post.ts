@@ -3,13 +3,13 @@ import {
   createSession,
   hashPassword,
   resolveSessionTtlSeconds,
-  setSessionCookie,
-  type SafeUser
+  setSessionCookie
 } from '../../utils/auth'
 import { prisma } from '../../utils/prisma'
-import { signupInputSchema } from '../../utils/contracts'
+import { signupInputSchema } from '../../../shared/contracts'
 import { validateBody } from '../../utils/validation'
 import { withRouteErrors } from '../../utils/route-errors'
+import type { SafeUser } from '../../../shared/contracts'
 
 export default defineEventHandler((event) =>
   withRouteErrors(event, async () => {

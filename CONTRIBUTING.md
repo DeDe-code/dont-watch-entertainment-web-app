@@ -26,8 +26,7 @@ Please be respectful and constructive in all interactions.
 
    ```bash
    npx prisma generate
-   npx prisma db push
-   npm run seed
+   npx prisma migrate deploy
    ```
 
 5. **Start development server**
@@ -160,7 +159,6 @@ server/
   api/          # API routes
   middleware/   # Server middleware
   utils/        # Server utilities
-stores/         # Pinia stores
 schemas/        # Zod validation schemas
 prisma/         # Database schema and migrations
 assets/         # Static assets
@@ -188,9 +186,8 @@ When modifying the database schema:
 
 1. **Update** `prisma/schema.prisma`
 2. **Generate Prisma Client**: `npx prisma generate`
-3. **Push changes**: `npx prisma db push`
-4. **Update seed file** if needed: `prisma/seed.ts`
-5. **Test migration**: `npm run seed`
+3. **Create a migration**: `npm run db:migrate`
+4. **Test the migration** against an isolated database
 
 ## Documentation
 

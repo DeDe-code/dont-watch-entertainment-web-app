@@ -1,4 +1,7 @@
-import { mediaItemSchema, paginationMetaSchema } from '../../utils/contracts'
+import {
+  mediaItemSchema,
+  paginationMetaSchema
+} from '../../../shared/contracts'
 import { ProviderError } from '../../utils/errors'
 import type { NormalizedPage, TmdbPage, TmdbResult } from './types'
 

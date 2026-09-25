@@ -3,17 +3,11 @@ import { createHash, randomBytes } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { deleteCookie, getCookie, setCookie } from 'h3'
 import { prisma } from './prisma'
+import type { SafeUser } from '../../shared/contracts'
 
 export const SESSION_COOKIE_NAME = 'dont-watch-session'
 export const DEFAULT_SESSION_TTL_SECONDS = 604800
 export const PASSWORD_HASH_ROUNDS = 12
-
-export type SafeUser = {
-  id: string
-  email: string
-  createdAt: Date
-  updatedAt: Date
-}
 
 export type SessionCookieOptions = {
   expires?: Date
