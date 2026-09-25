@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { PrismaClient } from '@prisma/client'
 import type { Client } from 'pg'
+import { http, HttpResponse } from 'msw'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { createUserInput } from '../factories/user.factory'
 import {
@@ -11,9 +12,19 @@ import signupHandler from '../../server/api/auth/signup.post'
 import listBookmarksHandler from '../../server/api/bookmarks/index.get'
 import createBookmarkHandler from '../../server/api/bookmarks/index.post'
 import deleteBookmarkHandler from '../../server/api/bookmarks/[provider]/[externalId]/[mediaType].delete'
+import { mswServer } from '../setup/msw'
 
 const SESSION_COOKIE_NAME = 'dont-watch-session'
-const stubRuntimeConfig = { sessionTtlSeconds: 604800 }
+const tmdbBaseUrl = 'https://api.themoviedb.org/3'
+const stubRuntimeConfig = {
+  databaseUrl: process.env.TEST_DATABASE_URL,
+  tmdbAccessToken: 'integration-test-token',
+  tmdbLanguage: 'en-US',
+  tmdbRegion: 'US',
+  tmdbRequestTimeoutMs: 1000,
+  tmdbCacheTtlSeconds: 0,
+  sessionTtlSeconds: 604800
+}
 
 interface MockEventOptions {
   method?: string
@@ -101,6 +112,29 @@ const movie = {
   isBookmarked: false
 }
 
+const tmdbMovie = {
+  id: 101,
+  title: 'Canonical Movie',
+  release_date: '2024-01-01',
+  poster_path: '/canonical-poster.jpg',
+  backdrop_path: '/canonical-backdrop.jpg',
+  overview: 'Trusted provider data',
+  vote_average: 8.4
+}
+
+function mockCanonicalMovie() {
+  mswServer.use(
+    http.get(`${tmdbBaseUrl}/movie/101`, () => HttpResponse.json(tmdbMovie)),
+    http.get(`${tmdbBaseUrl}/movie/101/release_dates`, () =>
+      HttpResponse.json({
+        results: [
+          { iso_3166_1: 'US', release_dates: [{ certification: 'PG-13' }] }
+        ]
+      })
+    )
+  )
+}
+
 async function createSession() {
   const input = createUserInput()
   const event = createEvent({ method: 'POST', body: signupBody(input) })
@@ -149,18 +183,19 @@ describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
   it('lists only the authenticated user bookmarks with pagination (AC-2)', async () => {
     const firstToken = await createSession()
     const secondToken = await createSession()
+    mockCanonicalMovie()
     await createBookmarkHandler(
       createEvent({
         method: 'POST',
         cookie: `${SESSION_COOKIE_NAME}=${firstToken}`,
-        body: movie
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
       })
     )
     await createBookmarkHandler(
       createEvent({
         method: 'POST',
         cookie: `${SESSION_COOKIE_NAME}=${secondToken}`,
-        body: { ...movie, externalId: 202, title: 'Other Movie' }
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
       })
     )
 
@@ -171,18 +206,19 @@ describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
       })
     )
     expect(response).toMatchObject({
-      data: [{ externalId: 101, title: movie.title }],
+      data: [{ externalId: 101, title: 'Canonical Movie' }],
       meta: { page: 1, totalResults: 1 }
     })
   })
 
   it('does not create duplicate bookmarks on repeated creates (AC-3)', async () => {
     const token = await createSession()
+    mockCanonicalMovie()
     const event = () =>
       createEvent({
         method: 'POST',
         cookie: `${SESSION_COOKIE_NAME}=${token}`,
-        body: movie
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
       })
     await createBookmarkHandler(event())
     await createBookmarkHandler(event())
@@ -190,14 +226,90 @@ describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
     await expect(prisma.mediaReference.count()).resolves.toBe(1)
   })
 
+  it('accepts identity-only creates and returns canonical provider snapshots', async () => {
+    const token = await createSession()
+    mockCanonicalMovie()
+
+    const response = await createBookmarkHandler(
+      createEvent({
+        method: 'POST',
+        cookie: `${SESSION_COOKIE_NAME}=${token}`,
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
+      })
+    )
+
+    expect(response).toMatchObject({
+      externalId: 101,
+      title: 'Canonical Movie',
+      posterPath: '/canonical-poster.jpg',
+      backdropPath: '/canonical-backdrop.jpg',
+      contentRating: 'PG-13',
+      isBookmarked: true
+    })
+    await expect(
+      prisma.mediaReference.findFirstOrThrow()
+    ).resolves.toMatchObject({
+      titleSnapshot: 'Canonical Movie',
+      posterPathSnapshot: '/canonical-poster.jpg',
+      backdropPathSnapshot: '/canonical-backdrop.jpg',
+      contentRatingSnapshot: 'PG-13'
+    })
+  })
+  it('ignores client-supplied snapshot fields and stores canonical provider data', async () => {
+    const token = await createSession()
+    mockCanonicalMovie()
+
+    await createBookmarkHandler(
+      createEvent({
+        method: 'POST',
+        cookie: `${SESSION_COOKIE_NAME}=${token}`,
+        body: {
+          provider: 'TMDB',
+          externalId: 101,
+          mediaType: 'MOVIE',
+          title: 'HACKED TITLE',
+          posterPath: '/fake.jpg',
+          backdropPath: '/fake-backdrop.jpg',
+          contentRating: 'FAKE'
+        }
+      })
+    )
+
+    await expect(
+      prisma.mediaReference.findFirstOrThrow()
+    ).resolves.toMatchObject({
+      titleSnapshot: 'Canonical Movie',
+      posterPathSnapshot: '/canonical-poster.jpg',
+      backdropPathSnapshot: '/canonical-backdrop.jpg',
+      contentRatingSnapshot: 'PG-13'
+    })
+  })
+  it('keeps concurrent identity-only creates idempotent', async () => {
+    const token = await createSession()
+    mockCanonicalMovie()
+    const event = () =>
+      createBookmarkHandler(
+        createEvent({
+          method: 'POST',
+          cookie: `${SESSION_COOKIE_NAME}=${token}`,
+          body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
+        })
+      )
+
+    await Promise.all([event(), event(), event(), event()])
+    await expect(prisma.bookmark.count()).resolves.toBe(1)
+    await expect(prisma.mediaReference.count()).resolves.toBe(1)
+  })
+
   it('cannot delete another user bookmark (AC-4)', async () => {
     const ownerToken = await createSession()
     const otherToken = await createSession()
+    mockCanonicalMovie()
     await createBookmarkHandler(
       createEvent({
         method: 'POST',
         cookie: `${SESSION_COOKIE_NAME}=${ownerToken}`,
-        body: movie
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
       })
     )
 
@@ -236,30 +348,46 @@ describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
 
   it('lists persisted snapshots without contacting TMDB (AC-6)', async () => {
     const token = await createSession()
+    mockCanonicalMovie()
     await createBookmarkHandler(
       createEvent({
         method: 'POST',
         cookie: `${SESSION_COOKIE_NAME}=${token}`,
-        body: movie
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
       })
+    )
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/:path`, () =>
+        HttpResponse.json(
+          { error: 'GET must not contact TMDB' },
+          { status: 500 }
+        )
+      )
     )
     const response = await listBookmarksHandler(
       createEvent({ cookie: `${SESSION_COOKIE_NAME}=${token}` })
     )
     expect(response).toMatchObject({
       data: [
-        { title: 'Snapshot Movie', year: 2024, posterPath: '/snapshot.jpg' }
+        {
+          title: 'Canonical Movie',
+          year: 2024,
+          posterPath: '/canonical-poster.jpg',
+          backdropPath: '/canonical-backdrop.jpg',
+          contentRating: 'PG-13'
+        }
       ]
     })
   })
 
   it('uses provider identity for deletion, not a local bookmark UUID (AC-7)', async () => {
     const token = await createSession()
+    mockCanonicalMovie()
     await createBookmarkHandler(
       createEvent({
         method: 'POST',
         cookie: `${SESSION_COOKIE_NAME}=${token}`,
-        body: movie
+        body: { provider: 'TMDB', externalId: 101, mediaType: 'MOVIE' }
       })
     )
     const bookmark = await prisma.bookmark.findFirstOrThrow()

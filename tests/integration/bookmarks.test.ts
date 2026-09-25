@@ -15,9 +15,9 @@ const media = {
   title: 'Snapshot Movie',
   year: 2024,
   posterPath: '/snapshot.jpg',
-  backdropPath: null,
+  backdropPath: '/snapshot-backdrop.jpg',
   overview: null,
-  contentRating: null,
+  contentRating: 'PG-13',
   isTrending: false,
   isBookmarked: false
 }
@@ -63,6 +63,38 @@ describe('bookmark persistence (TASK-BE-011)', () => {
     expect(new Set(results.map(({ bookmark }) => bookmark.id)).size).toBe(1)
     await expect(prisma.mediaReference.count()).resolves.toBe(1)
     await expect(prisma.bookmark.count()).resolves.toBe(1)
+  })
+
+  it('stores trusted snapshots, refreshes them on re-bookmark, and persists all snapshot fields', async () => {
+    const user = await createUser()
+    const first = await service.createBookmark(user.id, media)
+
+    expect(first.mediaReference).toMatchObject({
+      titleSnapshot: 'Snapshot Movie',
+      posterPathSnapshot: '/snapshot.jpg',
+      backdropPathSnapshot: '/snapshot-backdrop.jpg',
+      contentRatingSnapshot: 'PG-13'
+    })
+
+    const refreshed = await service.createBookmark(user.id, {
+      ...media,
+      title: 'Fake title',
+      posterPath: '/fake-poster.jpg',
+      backdropPath: '/fake-backdrop.jpg',
+      contentRating: 'FAKE'
+    })
+
+    expect(refreshed.bookmark.id).toBe(first.bookmark.id)
+    await expect(
+      prisma.mediaReference.findUniqueOrThrow({
+        where: { id: first.mediaReference.id }
+      })
+    ).resolves.toMatchObject({
+      titleSnapshot: 'Fake title',
+      posterPathSnapshot: '/fake-poster.jpg',
+      backdropPathSnapshot: '/fake-backdrop.jpg',
+      contentRatingSnapshot: 'FAKE'
+    })
   })
 
   it('allows independent owners and enforces ownership on delete and list (AC-3, AC-4)', async () => {

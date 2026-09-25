@@ -35,15 +35,17 @@ model Session {
 }
 
 model MediaReference {
-  id                 String   @id @default(uuid())
-  provider           String
-  externalId         String
-  mediaType          String
-  titleSnapshot      String
-  yearSnapshot       Int?
-  posterPathSnapshot String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+  id                    String   @id @default(uuid())
+  provider              String
+  externalId            String
+  mediaType             String
+  titleSnapshot         String
+  yearSnapshot          Int?
+  posterPathSnapshot    String?
+  backdropPathSnapshot  String?
+  contentRatingSnapshot String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   bookmarks Bookmark[]
 

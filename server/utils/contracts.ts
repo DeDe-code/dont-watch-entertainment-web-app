@@ -1,9 +1,5 @@
 import { z } from 'zod'
-import {
-  mediaItemSchema,
-  mediaTypeSchema,
-  providerSchema
-} from '../../shared/contracts'
+import { mediaTypeSchema, providerSchema } from '../../shared/contracts'
 import type { MediaType } from '../../shared/contracts'
 
 const pageSchema = z.coerce.number().int().positive().max(500)
@@ -27,7 +23,11 @@ export const mediaQuerySchema = mediaPageQuerySchema.extend({
   search: z.string().trim().min(1).max(100).optional()
 })
 
-export const bookmarkCreateInputSchema = mediaItemSchema
+export const bookmarkCreateInputSchema = z.object({
+  provider: providerSchema,
+  externalId: z.number().int().positive(),
+  mediaType: mediaTypeSchema
+})
 export const bookmarkListQuerySchema = mediaPageQuerySchema
 export const bookmarkIdentityPathSchema = z.object({
   provider: providerSchema,
