@@ -22,9 +22,9 @@ export default defineEventHandler((event) =>
         title: mediaReference.titleSnapshot,
         year: mediaReference.yearSnapshot,
         posterPath: mediaReference.posterPathSnapshot,
-        backdropPath: null,
+        backdropPath: mediaReference.backdropPathSnapshot,
         overview: null,
-        contentRating: null,
+        contentRating: mediaReference.contentRatingSnapshot,
         isTrending: false,
         isBookmarked: true
       })),

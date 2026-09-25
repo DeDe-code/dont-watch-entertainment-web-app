@@ -22,7 +22,9 @@ function snapshotData(media: MediaItem): Prisma.MediaReferenceCreateInput {
     mediaType: media.mediaType,
     titleSnapshot: media.title,
     yearSnapshot: media.year,
-    posterPathSnapshot: media.posterPath
+    posterPathSnapshot: media.posterPath,
+    backdropPathSnapshot: media.backdropPath,
+    contentRatingSnapshot: media.contentRating
   }
 }
 
@@ -40,7 +42,13 @@ export function createBookmarkService(database: PrismaClient) {
         }
       },
       create: snapshotData(media),
-      update: {}
+      update: {
+        titleSnapshot: media.title,
+        yearSnapshot: media.year,
+        posterPathSnapshot: media.posterPath,
+        backdropPathSnapshot: media.backdropPath,
+        contentRatingSnapshot: media.contentRating
+      }
     })
   }
 

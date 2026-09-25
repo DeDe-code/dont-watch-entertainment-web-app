@@ -68,6 +68,16 @@ export function createMediaService(config: RuntimeConfig) {
   }
 
   return {
+    async resolveBookmarkMedia(identity: ProviderIdentity): Promise<MediaItem> {
+      const [media, contentRating] = await Promise.all([
+        identity.mediaType === 'MOVIE'
+          ? tmdb.movieDetails(identity.externalId)
+          : tmdb.tvDetails(identity.externalId),
+        tmdb.resolveContentRating(identity.mediaType, identity.externalId)
+      ])
+
+      return { ...media, contentRating: contentRating?.trim() || null }
+    },
     async trending(query: unknown, userId?: string) {
       const { page } = validateQuery(mediaPageQuerySchema, query)
       const result = await tmdb.trending(page)
