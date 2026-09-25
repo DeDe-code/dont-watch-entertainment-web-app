@@ -1,8 +1,6 @@
-// Nuxt 3 application configuration
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  // Register Nuxt modules: ESLint for linting, Nuxt UI for the component library, Pinia for state management
-  modules: ['@nuxt/eslint', '@nuxt/ui', '@pinia/nuxt'],
+  modules: ['@nuxt/eslint', '@nuxt/ui'],
 
   // Enable Nuxt DevTools for an in-browser developer panel during local dev
   devtools: {

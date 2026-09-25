@@ -1,17 +1,5 @@
 import { createError, type H3Error } from 'h3'
-
-export const applicationErrorCodes = [
-  'INVALID_INPUT',
-  'UNAUTHENTICATED',
-  'FORBIDDEN',
-  'NOT_FOUND',
-  'CONFLICT',
-  'PROVIDER_UNAVAILABLE',
-  'DATABASE_ERROR',
-  'INTERNAL_ERROR'
-] as const
-
-export type ApplicationErrorCode = (typeof applicationErrorCodes)[number]
+import type { ApplicationErrorCode } from '../../shared/contracts'
 
 type ErrorDetails = Record<string, string>
 

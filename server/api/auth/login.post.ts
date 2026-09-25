@@ -7,7 +7,7 @@ import {
 } from '../../utils/auth'
 import { ApplicationError } from '../../utils/errors'
 import { prisma } from '../../utils/prisma'
-import { loginInputSchema } from '../../utils/contracts'
+import { loginInputSchema } from '../../../shared/contracts'
 import { validateBody } from '../../utils/validation'
 import { withRouteErrors } from '../../utils/route-errors'
 
