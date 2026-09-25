@@ -163,4 +163,70 @@ describe('media routes (TASK-BE-009)', () => {
       ]
     })
   })
+
+  it('enriches list items, isolates rating failures, and preserves provider objects', async () => {
+    const providerItems = [movie, { ...movie, id: 3 }]
+    let ratingCalls = 0
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/discover/movie`, () =>
+        HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 2,
+          results: providerItems
+        })
+      ),
+      http.get(`${tmdbBaseUrl}/movie/1/release_dates`, () => {
+        ratingCalls += 1
+        return HttpResponse.json({
+          results: [
+            { iso_3166_1: 'US', release_dates: [{ certification: 'R' }] }
+          ]
+        })
+      }),
+      http.get(`${tmdbBaseUrl}/movie/3/release_dates`, () => {
+        ratingCalls += 1
+        return new HttpResponse(null, { status: 500 })
+      })
+    )
+
+    const result = await moviesHandler(createEvent())
+
+    expect(result.data).toEqual([
+      expect.objectContaining({ externalId: 1, contentRating: 'R' }),
+      expect.objectContaining({ externalId: 3, contentRating: null })
+    ])
+    expect(providerItems[0]).not.toHaveProperty('contentRating')
+    expect(ratingCalls).toBe(4)
+  })
+
+  it('limits concurrent rating lookups to five', async () => {
+    let active = 0
+    let maximum = 0
+    const results = Array.from({ length: 12 }, (_, index) => ({
+      ...movie,
+      id: index + 10
+    }))
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/discover/movie`, () =>
+        HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: results.length,
+          results
+        })
+      ),
+      http.get(`${tmdbBaseUrl}/movie/:id/release_dates`, async () => {
+        active += 1
+        maximum = Math.max(maximum, active)
+        await new Promise((resolve) => setTimeout(resolve, 5))
+        active -= 1
+        return HttpResponse.json({ results: [] })
+      })
+    )
+
+    await moviesHandler(createEvent())
+
+    expect(maximum).toBe(5)
+  })
 })
