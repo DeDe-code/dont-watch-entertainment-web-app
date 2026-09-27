@@ -36,6 +36,8 @@ export type TmdbClient = {
   trending(page?: number): Promise<NormalizedPage>
   discoverMovies(page?: number): Promise<NormalizedPage>
   discoverTv(page?: number): Promise<NormalizedPage>
+  searchMovies(query: string, page?: number): Promise<NormalizedPage>
+  searchTv(query: string, page?: number): Promise<NormalizedPage>
   searchMulti(query: string, page?: number): Promise<NormalizedPage>
   movieDetails(id: number): Promise<MediaItem>
   tvDetails(id: number): Promise<MediaItem>

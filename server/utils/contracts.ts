@@ -16,7 +16,8 @@ export const mediaPageQuerySchema = z.object({
 })
 
 export const mediaSearchQuerySchema = mediaPageQuerySchema.extend({
-  q: z.string().trim().min(1).max(100)
+  q: z.string().trim().min(1).max(100),
+  type: z.enum(['all', 'movie', 'tv']).default('all')
 })
 
 export const mediaQuerySchema = mediaPageQuerySchema.extend({
@@ -28,7 +29,10 @@ export const bookmarkCreateInputSchema = z.object({
   externalId: z.number().int().positive(),
   mediaType: mediaTypeSchema
 })
-export const bookmarkListQuerySchema = mediaPageQuerySchema
+export const bookmarkListQuerySchema = mediaPageQuerySchema.extend({
+  q: z.string().trim().min(1).max(100).optional(),
+  mediaType: mediaTypeSchema.optional()
+})
 export const bookmarkIdentityPathSchema = z.object({
   provider: providerSchema,
   externalId: z.coerce.number().int().positive(),

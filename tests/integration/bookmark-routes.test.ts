@@ -45,6 +45,7 @@ function createEvent({
 
   return {
     method,
+    path: url,
     context: params ? { params } : {},
     node: {
       req: {
@@ -142,6 +143,24 @@ async function createSession() {
   return getSessionToken(event)
 }
 
+async function createBookmarkSnapshot(
+  userId: string,
+  input: { externalId: number; mediaType: 'MOVIE' | 'TV'; title: string }
+) {
+  const reference = await prisma.mediaReference.create({
+    data: {
+      provider: 'TMDB',
+      externalId: String(input.externalId),
+      mediaType: input.mediaType,
+      titleSnapshot: input.title
+    }
+  })
+
+  await prisma.bookmark.create({
+    data: { userId, mediaReferenceId: reference.id }
+  })
+}
+
 describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
   let dbClient: Client
   let prisma: PrismaClient
@@ -209,6 +228,128 @@ describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
       data: [{ externalId: 101, title: 'Canonical Movie' }],
       meta: { page: 1, totalResults: 1 }
     })
+  })
+
+  it('filters bookmark search case-insensitively by title and media type', async () => {
+    const token = await createSession()
+    const user = await prisma.user.findFirstOrThrow()
+    await createBookmarkSnapshot(user.id, {
+      externalId: 201,
+      mediaType: 'MOVIE',
+      title: 'Batman Begins'
+    })
+    await createBookmarkSnapshot(user.id, {
+      externalId: 202,
+      mediaType: 'MOVIE',
+      title: 'The Batman'
+    })
+    await createBookmarkSnapshot(user.id, {
+      externalId: 203,
+      mediaType: 'TV',
+      title: 'Batman: The Animated Series'
+    })
+    await createBookmarkSnapshot(user.id, {
+      externalId: 204,
+      mediaType: 'TV',
+      title: 'Gotham'
+    })
+
+    const search = (url: string) =>
+      listBookmarksHandler(
+        createEvent({ cookie: `${SESSION_COOKIE_NAME}=${token}`, url })
+      )
+
+    const batmanResults = await search('/?q=batman')
+    expect(batmanResults.data.map(({ externalId }) => externalId)).toEqual([
+      203, 202, 201
+    ])
+    expect(batmanResults.meta).toMatchObject({
+      totalResults: 3,
+      totalPages: 1
+    })
+    await expect(search('/?q=Batman')).resolves.toMatchObject({
+      meta: { totalResults: 3 }
+    })
+    await expect(search('/?q=BATMAN')).resolves.toMatchObject({
+      meta: { totalResults: 3 }
+    })
+    await expect(search('/?mediaType=MOVIE')).resolves.toMatchObject({
+      data: [
+        { externalId: 202, mediaType: 'MOVIE' },
+        { externalId: 201, mediaType: 'MOVIE' }
+      ],
+      meta: { totalResults: 2 }
+    })
+    await expect(search('/?mediaType=TV')).resolves.toMatchObject({
+      data: [
+        { externalId: 204, mediaType: 'TV' },
+        { externalId: 203, mediaType: 'TV' }
+      ],
+      meta: { totalResults: 2 }
+    })
+    await expect(search('/?q=batman&mediaType=TV')).resolves.toMatchObject({
+      data: [{ externalId: 203, mediaType: 'TV' }],
+      meta: { totalResults: 1, totalPages: 1 }
+    })
+  })
+
+  it('applies bookmark search filters to pagination and keeps results user-isolated', async () => {
+    const ownerToken = await createSession()
+    const otherToken = await createSession()
+    const users = await prisma.user.findMany({ orderBy: { createdAt: 'asc' } })
+    const owner = users[0]!
+    const other = users[1]!
+
+    for (let index = 0; index < 41; index += 1) {
+      await createBookmarkSnapshot(owner.id, {
+        externalId: 300 + index,
+        mediaType: index % 2 === 0 ? 'MOVIE' : 'TV',
+        title: `Batman ${index}`
+      })
+    }
+    await createBookmarkSnapshot(other.id, {
+      externalId: 999,
+      mediaType: 'MOVIE',
+      title: 'Batman belongs to another user'
+    })
+
+    const response = await listBookmarksHandler(
+      createEvent({
+        cookie: `${SESSION_COOKIE_NAME}=${ownerToken}`,
+        url: '/?q=batman&mediaType=MOVIE&page=2'
+      })
+    )
+    expect(response).toMatchObject({
+      data: [{ externalId: 300 }],
+      meta: { page: 2, totalResults: 21, totalPages: 2 }
+    })
+    expect(response.data).not.toEqual(
+      expect.arrayContaining([{ externalId: 999 }])
+    )
+
+    await expect(
+      listBookmarksHandler(
+        createEvent({
+          cookie: `${SESSION_COOKIE_NAME}=${otherToken}`,
+          url: '/?q=batman'
+        })
+      )
+    ).resolves.toMatchObject({
+      data: [{ externalId: 999 }],
+      meta: { totalResults: 1, totalPages: 1 }
+    })
+  })
+
+  it('rejects invalid bookmark search query parameters', async () => {
+    const token = await createSession()
+
+    for (const url of ['/?q=', '/?mediaType=BOOK', '/?page=0']) {
+      await expect(
+        listBookmarksHandler(
+          createEvent({ cookie: `${SESSION_COOKIE_NAME}=${token}`, url })
+        )
+      ).rejects.toMatchObject({ statusCode: 400 })
+    }
   })
 
   it('does not create duplicate bookmarks on repeated creates (AC-3)', async () => {
@@ -365,7 +506,10 @@ describe('bookmark routes (TASK-BE-012 / issue #17)', () => {
       )
     )
     const response = await listBookmarksHandler(
-      createEvent({ cookie: `${SESSION_COOKIE_NAME}=${token}` })
+      createEvent({
+        cookie: `${SESSION_COOKIE_NAME}=${token}`,
+        url: '/?q=canonical&mediaType=MOVIE'
+      })
     )
     expect(response).toMatchObject({
       data: [

@@ -112,16 +112,30 @@ export function createBookmarkService(database: PrismaClient) {
     })
   }
 
-  async function listBookmarks(userId: string, page = 1, pageSize = 20) {
+  async function listBookmarks(
+    userId: string,
+    page = 1,
+    pageSize = 20,
+    query?: { q?: string; mediaType?: 'MOVIE' | 'TV' }
+  ) {
+    const where: Prisma.BookmarkWhereInput = {
+      userId,
+      mediaReference: {
+        ...(query?.q
+          ? { titleSnapshot: { contains: query.q, mode: 'insensitive' } }
+          : {}),
+        ...(query?.mediaType ? { mediaType: query.mediaType } : {})
+      }
+    }
     const [data, totalResults] = await database.$transaction([
       database.bookmark.findMany({
-        where: { userId },
+        where,
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * pageSize,
         take: pageSize,
         include: { mediaReference: true }
       }),
-      database.bookmark.count({ where: { userId } })
+      database.bookmark.count({ where })
     ])
 
     return {
