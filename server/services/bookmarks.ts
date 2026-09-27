@@ -179,11 +179,31 @@ export function createBookmarkService(database: PrismaClient) {
     )
   }
 
+  async function listRecentIdentities(userId: string, limit = 3) {
+    const bookmarks = await database.bookmark.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        mediaReference: {
+          select: { provider: true, externalId: true, mediaType: true }
+        }
+      }
+    })
+
+    return bookmarks.map(({ mediaReference }) => ({
+      provider: mediaReference.provider,
+      externalId: Number(mediaReference.externalId),
+      mediaType: mediaReference.mediaType as 'MOVIE' | 'TV'
+    }))
+  }
+
   return {
     upsertMediaReference,
     createBookmark,
     deleteBookmark,
     listBookmarks,
-    findBookmarkedIdentities
+    findBookmarkedIdentities,
+    listRecentIdentities
   }
 }

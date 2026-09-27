@@ -102,6 +102,53 @@ export function createMediaService(config: RuntimeConfig) {
         data: await enrichMedia(await enrichRatings(result.data), userId)
       }
     },
+    async recommended(query: unknown, userId?: string) {
+      const { page } = validateQuery(mediaPageQuerySchema, query)
+      const seeds = userId
+        ? await bookmarks.listRecentIdentities(userId, 3)
+        : []
+      const streams = seeds.length
+        ? await Promise.all(
+            seeds.map((seed) =>
+              seed.mediaType === 'MOVIE'
+                ? tmdb.movieRecommendations(seed.externalId, page)
+                : tmdb.tvRecommendations(seed.externalId, page)
+            )
+          )
+        : await Promise.all([tmdb.discoverMovies(page), tmdb.discoverTv(page)])
+      const seedKeys = new Set(
+        seeds.map(
+          (seed) => `${seed.provider}:${seed.externalId}:${seed.mediaType}`
+        )
+      )
+      const data: MediaItem[] = []
+      const seen = new Set<string>()
+      const maxLength = Math.max(...streams.map((stream) => stream.data.length))
+      for (let index = 0; index < maxLength; index += 1) {
+        for (const stream of streams) {
+          const item = stream.data[index]
+          if (!item) continue
+          const key = `TMDB:${item.externalId}:${item.mediaType}`
+          if (!seedKeys.has(key) && !seen.has(key)) {
+            seen.add(key)
+            data.push(item)
+          }
+        }
+      }
+      return {
+        data: await enrichMedia(await enrichRatings(data), userId),
+        meta: {
+          page,
+          totalPages: Math.max(
+            ...streams.map((stream) => stream.meta.totalPages)
+          ),
+          totalResults: streams.reduce(
+            (total, stream) => total + stream.meta.totalResults,
+            0
+          )
+        }
+      }
+    },
     async search(query: unknown, userId?: string) {
       const { page, q, type } = validateQuery(mediaSearchQuerySchema, query)
       const result =
