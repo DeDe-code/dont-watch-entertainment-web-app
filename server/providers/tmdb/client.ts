@@ -264,6 +264,10 @@ export function createTmdbClient(
     discoverMovies: (pageNumber = 1) =>
       page('/discover/movie', 'MOVIE', pageNumber),
     discoverTv: (pageNumber = 1) => page('/discover/tv', 'TV', pageNumber),
+    movieRecommendations: (id, pageNumber = 1) =>
+      page(`/movie/${id}/recommendations`, 'MOVIE', pageNumber),
+    tvRecommendations: (id, pageNumber = 1) =>
+      page(`/tv/${id}/recommendations`, 'TV', pageNumber),
     searchMovies: (query, pageNumber = 1) =>
       get('/search/movie', { query, page: String(pageNumber) }, parsePage).then(
         (result) => normalizePage(result, 'MOVIE')
