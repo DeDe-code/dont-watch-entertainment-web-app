@@ -62,12 +62,20 @@ describe('media routes (TASK-BE-014)', () => {
           results: [movie]
         })
       ),
-      http.get(`${tmdbBaseUrl}/search/multi`, () =>
+      http.get(`${tmdbBaseUrl}/search/movie`, () =>
         HttpResponse.json({
           page: 1,
           total_pages: 1,
           total_results: 1,
-          results: [{ ...movie, media_type: 'movie' }]
+          results: [movie]
+        })
+      ),
+      http.get(`${tmdbBaseUrl}/search/tv`, () =>
+        HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 0,
+          results: []
         })
       ),
       http.get(`${tmdbBaseUrl}/trending/all/day`, () =>

@@ -94,16 +94,20 @@ describe('media routes (TASK-BE-009)', () => {
 
   it('filters people from search results and returns the normalized page (AC-1, AC-3)', async () => {
     mswServer.use(
-      http.get(`${tmdbBaseUrl}/search/multi`, () =>
+      http.get(`${tmdbBaseUrl}/search/movie`, () =>
         HttpResponse.json({
           page: 1,
           total_pages: 1,
-          total_results: 3,
-          results: [
-            { ...movie, media_type: 'movie' },
-            { ...tv, media_type: 'tv' },
-            { id: 3, name: 'A Person', media_type: 'person' }
-          ]
+          total_results: 1,
+          results: [movie]
+        })
+      ),
+      http.get(`${tmdbBaseUrl}/search/tv`, () =>
+        HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 1,
+          results: [tv]
         })
       )
     )
@@ -111,12 +115,140 @@ describe('media routes (TASK-BE-009)', () => {
     const response = await searchHandler(createEvent({ q: 'space' }))
 
     expect(response).toMatchObject({
-      meta: { page: 1, totalPages: 1, totalResults: 3 }
+      meta: { page: 1, totalPages: 1, totalResults: 2 }
     })
     expect((response as { data: Array<{ mediaType: string }> }).data).toEqual([
       expect.objectContaining({ mediaType: 'MOVIE' }),
       expect.objectContaining({ mediaType: 'TV' })
     ])
+  })
+
+  it('searches movies only for type=movie', async () => {
+    const movieRequest = vi.fn()
+    const tvRequest = vi.fn()
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/search/movie`, () => {
+        movieRequest()
+        return HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 1,
+          results: [movie]
+        })
+      }),
+      http.get(`${tmdbBaseUrl}/search/tv`, () => {
+        tvRequest()
+        return HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 0,
+          results: []
+        })
+      })
+    )
+
+    const response = await searchHandler(
+      createEvent({ q: 'space', type: 'movie' })
+    )
+
+    expect(movieRequest).toHaveBeenCalledOnce()
+    expect(tvRequest).not.toHaveBeenCalled()
+    expect(response.data).toEqual([
+      expect.objectContaining({ mediaType: 'MOVIE' })
+    ])
+  })
+
+  it('searches TV only for type=tv', async () => {
+    const movieRequest = vi.fn()
+    const tvRequest = vi.fn()
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/search/movie`, () => {
+        movieRequest()
+        return HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 0,
+          results: []
+        })
+      }),
+      http.get(`${tmdbBaseUrl}/search/tv`, () => {
+        tvRequest()
+        return HttpResponse.json({
+          page: 1,
+          total_pages: 1,
+          total_results: 1,
+          results: [tv]
+        })
+      })
+    )
+
+    const response = await searchHandler(
+      createEvent({ q: 'space', type: 'tv' })
+    )
+
+    expect(tvRequest).toHaveBeenCalledOnce()
+    expect(movieRequest).not.toHaveBeenCalled()
+    expect(response.data).toEqual([
+      expect.objectContaining({ mediaType: 'TV' })
+    ])
+  })
+
+  it('merges all search results round robin with deterministic deduplication', async () => {
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/search/movie`, ({ request }) => {
+        expect(new URL(request.url).searchParams.get('page')).toBe('3')
+        return HttpResponse.json({
+          page: 3,
+          total_pages: 4,
+          total_results: 10,
+          results: [movie, { ...movie, id: 3 }, { ...movie, id: 4 }]
+        })
+      }),
+      http.get(`${tmdbBaseUrl}/search/tv`, ({ request }) => {
+        expect(new URL(request.url).searchParams.get('page')).toBe('3')
+        return HttpResponse.json({
+          page: 3,
+          total_pages: 6,
+          total_results: 20,
+          results: [tv, { ...tv, id: 4 }, { ...tv, id: 5 }]
+        })
+      })
+    )
+
+    const response = await searchHandler(createEvent({ q: 'space', page: '3' }))
+
+    expect(
+      response.data.map((item) => `${item.externalId}:${item.mediaType}`)
+    ).toEqual(['1:MOVIE', '2:TV', '3:MOVIE', '4:TV', '4:MOVIE', '5:TV'])
+    expect(response.meta).toEqual({ page: 3, totalPages: 6, totalResults: 30 })
+  })
+
+  it('keeps non-empty results when one all-search page is empty', async () => {
+    mswServer.use(
+      http.get(`${tmdbBaseUrl}/search/movie`, () =>
+        HttpResponse.json({
+          page: 2,
+          total_pages: 4,
+          total_results: 10,
+          results: []
+        })
+      ),
+      http.get(`${tmdbBaseUrl}/search/tv`, () =>
+        HttpResponse.json({
+          page: 2,
+          total_pages: 3,
+          total_results: 8,
+          results: [tv]
+        })
+      )
+    )
+
+    const response = await searchHandler(createEvent({ q: 'space', page: '2' }))
+
+    expect(response.data).toEqual([
+      expect.objectContaining({ mediaType: 'TV' })
+    ])
+    expect(response.meta).toEqual({ page: 2, totalPages: 4, totalResults: 18 })
   })
 
   it('rejects invalid page and query input before a provider call (AC-4)', async () => {
@@ -135,6 +267,12 @@ describe('media routes (TASK-BE-009)', () => {
       data: { code: 'INVALID_INPUT' }
     })
     await expect(searchHandler(createEvent({ q: ' ' }))).rejects.toMatchObject({
+      statusCode: 400,
+      data: { code: 'INVALID_INPUT' }
+    })
+    await expect(
+      searchHandler(createEvent({ q: 'space', type: 'invalid' }))
+    ).rejects.toMatchObject({
       statusCode: 400,
       data: { code: 'INVALID_INPUT' }
     })

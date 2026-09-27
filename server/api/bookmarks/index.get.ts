@@ -9,10 +9,15 @@ import { validateQuery } from '../../utils/validation'
 export default defineEventHandler((event) =>
   withRouteErrors(event, async () => {
     const user = await requireUser(event)
-    const { page } = validateQuery(bookmarkListQuerySchema, getQuery(event))
+    const { page, q, mediaType } = validateQuery(
+      bookmarkListQuerySchema,
+      getQuery(event)
+    )
     const result = await createBookmarkService(prisma).listBookmarks(
       user.id,
-      page
+      page,
+      20,
+      { q, mediaType }
     )
 
     return {

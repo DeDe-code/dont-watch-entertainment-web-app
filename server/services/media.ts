@@ -103,8 +103,43 @@ export function createMediaService(config: RuntimeConfig) {
       }
     },
     async search(query: unknown, userId?: string) {
-      const { page, q } = validateQuery(mediaSearchQuerySchema, query)
-      const result = await tmdb.searchMulti(q, page)
+      const { page, q, type } = validateQuery(mediaSearchQuerySchema, query)
+      const result =
+        type === 'movie'
+          ? await tmdb.searchMovies(q, page)
+          : type === 'tv'
+            ? await tmdb.searchTv(q, page)
+            : await (async () => {
+                const [movies, tv] = await Promise.all([
+                  tmdb.searchMovies(q, page),
+                  tmdb.searchTv(q, page)
+                ])
+                const data: MediaItem[] = []
+                const seen = new Set<string>()
+                const maxLength = Math.max(movies.data.length, tv.data.length)
+                for (let index = 0; index < maxLength; index += 1) {
+                  for (const item of [movies.data[index], tv.data[index]]) {
+                    if (!item) continue
+                    const key = `TMDB:${item.externalId}:${item.mediaType}`
+                    if (!seen.has(key)) {
+                      seen.add(key)
+                      data.push(item)
+                    }
+                  }
+                }
+                return {
+                  data,
+                  meta: {
+                    page,
+                    totalPages: Math.max(
+                      movies.meta.totalPages,
+                      tv.meta.totalPages
+                    ),
+                    totalResults:
+                      movies.meta.totalResults + tv.meta.totalResults
+                  }
+                }
+              })()
       return {
         ...result,
         data: await enrichMedia(await enrichRatings(result.data), userId)
