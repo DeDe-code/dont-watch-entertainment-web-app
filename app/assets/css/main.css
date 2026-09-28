@@ -790,6 +790,87 @@
       aspect-ratio: 280 / 174;
     }
   }
+
+  /* Contextual search (FE-006).
+     Geometry comes from the Figma Search component (2050:2282): a 32px text row
+     with the search icon, 16px apart on mobile and 24px apart from tablet up.
+     The width is fluid so the field fills whatever space the page gives it;
+     the desktop reference caps the focused underline at 540px. */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+  }
+
+  .search-bar__icon {
+    flex: 0 0 auto;
+    font-size: 24px;
+    color: #fff;
+  }
+
+  /* Wraps the input so the focus underline can sit 14px below the text row
+     (Figma Active state) without a layout shift when focus moves. */
+  .search-bar__field {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .search-bar__input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    caret-color: var(--color-red-500);
+    font-size: 16px;
+    line-height: 1.25;
+    font-weight: 300;
+  }
+  .search-bar__input::placeholder {
+    color: #fff;
+    opacity: 0.5;
+  }
+  /* The Figma active state replaces the platform focus ring with the Blue 500
+     underline below, so the outline must not stack on top of it. */
+  .search-bar__input:focus {
+    outline: none;
+  }
+
+  .search-bar__field::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    bottom: -14px;
+    left: 0;
+    height: 1px;
+    background: transparent;
+  }
+  .search-bar__field:focus-within::after {
+    background: var(--color-blue-500);
+  }
+
+  /* Continuation sentinel (FE-006): a zero-height marker at the end of a
+     result list. Its only visible output is the off-screen status text. */
+  .progressive-sentinel {
+    height: 0;
+  }
+
+  @media (min-width: 768px) {
+    .search-bar {
+      gap: 24px;
+      max-width: 540px;
+    }
+    .search-bar__icon {
+      font-size: 32px;
+    }
+    .search-bar__input {
+      font-size: 24px;
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */
