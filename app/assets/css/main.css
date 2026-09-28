@@ -31,7 +31,7 @@
   --max-width-login-card-mobile: 327px;
   --max-width-login-card-tablet: 400px;
   --max-height-login-card-mobile: 365px;
-  --max-height-login-card-tablet: 478.6px;
+  --max-height-login-card-tablet: 425px;
 }
 
 @layer base {
@@ -43,6 +43,180 @@
   body {
     background-color: var(--color-blue-950);
     color: #ffffff;
+  }
+}
+
+/* App-owned component styles.
+   These live in a dedicated `app` layer instead of Tailwind's shared
+   `components` layer, because the position of the `components` layer is not
+   owned by this file: CSS layer order is fixed by the first stylesheet that
+   declares a layer, and Nuxt UI renders each icon's mask CSS in a <style> tag
+   that is inserted into <head> by @nuxt/icon (`icon.cssLayer: 'components'`).
+   After hydration that tag is parsed before Tailwind's
+   `@layer theme, base, components, utilities;` statement, which pins
+   `components` ahead of `base`; Tailwind's preflight (in `base`) then overrides
+   every auth rule and the login/signup pages lose their button background,
+   input underline, and heading typography.
+   `app` is declared only here, so it always sorts last: these rules reliably win
+   over preflight and third-party styles in any injection order, without
+   `!important`. Keep app component styles in this layer. */
+@layer app {
+  .auth-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 78px 24px 40px;
+    background: var(--color-blue-950);
+  }
+  .auth-logo {
+    display: inline-flex;
+    text-decoration: none;
+  }
+  /* Sized directly on the icon itself: UIcon can render a CSS-mask span
+     instead of an inline <svg>, so a wrapper-based `.auth-logo svg` selector
+     is not guaranteed to match. */
+  .auth-logo-icon {
+    display: block;
+    width: 32px;
+    height: 25.6px;
+    color: var(--color-red-500);
+  }
+  .auth-form {
+    width: min(100%, 400px);
+    height: 373px;
+    margin-top: 80px;
+    padding: 32px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--color-blue-900);
+    border-radius: 20px;
+  }
+  .auth-form--signup {
+    height: 425px;
+  }
+  .auth-form > * {
+    width: 100%;
+    max-width: 336px;
+  }
+  .auth-form h1 {
+    margin: 0 0 40px;
+    font-size: 32px;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    font-weight: 300;
+  }
+  .fields {
+    display: flex;
+    flex-direction: column;
+  }
+  .actions {
+    display: flex;
+    flex-direction: column;
+  }
+  /* Relatively positioned so the field-error can float on the right without
+     shrinking the input, keeping the underline full width in every state. */
+  .field {
+    position: relative;
+    min-width: 0;
+    margin-bottom: 24px;
+  }
+  .field input {
+    box-sizing: border-box;
+    width: 100%;
+    height: 40px;
+    border: 0;
+    border-bottom: 1px solid var(--color-blue-500);
+    border-radius: 0;
+    background: transparent;
+    padding: 0;
+    color: white;
+    caret-color: var(--color-red-500);
+    font-size: 15px;
+    font-weight: 300;
+  }
+  .field input::placeholder {
+    color: white;
+    opacity: 0.5;
+  }
+  .field input:focus {
+    border-bottom-color: white;
+    outline: none;
+  }
+  .field input[aria-invalid='true'] {
+    border-bottom-color: var(--color-red-500);
+  }
+  .field-error,
+  .form-error {
+    color: var(--color-red-500);
+    font-size: 13px;
+    line-height: 1.25;
+    font-weight: 300;
+  }
+  .field-error {
+    position: absolute;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+  }
+  .form-error {
+    margin: -12px 0 12px;
+  }
+  .auth-form button {
+    width: 100%;
+    height: 48px;
+    flex: 0 0 48px;
+    border: 0;
+    border-radius: 6px;
+    background: white;
+    color: var(--color-blue-900);
+    padding: 0 12px;
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 300;
+    cursor: pointer;
+  }
+  .auth-form button:hover:not(:disabled),
+  .auth-form button:active:not(:disabled) {
+    background: var(--color-red-500);
+    color: white;
+  }
+  .auth-form button:disabled {
+    cursor: wait;
+    opacity: 0.7;
+  }
+  .auth-switch {
+    margin-top: 24px;
+    text-align: center;
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 300;
+    color: white;
+  }
+  .auth-switch a {
+    color: var(--color-red-500);
+  }
+
+  @media (max-width: 600px) {
+    .auth-page {
+      padding-top: 48px;
+    }
+    .auth-form {
+      width: min(100%, 327px);
+      height: 365px;
+      margin-top: 56px;
+      padding: 32px 24px;
+      border-radius: 10px;
+    }
+    .auth-form--signup {
+      height: 425px;
+    }
+    .auth-form > * {
+      max-width: 279px;
+    }
   }
 }
 
