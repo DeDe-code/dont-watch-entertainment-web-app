@@ -416,6 +416,380 @@
       left: calc(100% + 28px);
     }
   }
+
+  /* Media presentation primitives (FE-005).
+     Geometry is taken from the Figma Home frames. A regular card is
+     164x110 / 220x140 / 280x174 (mobile / tablet / desktop) and a trending card
+     is 240x140 / 470x230, so the image aspect ratio itself reserves the exact
+     Figma box at each reference width while staying fluid in between. Nothing
+     here depends on a resize listener; the shape changes are CSS breakpoints
+     that match the app shell (768 tablet, 1024 desktop). */
+
+  .media-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 15px;
+    row-gap: 16px;
+    padding-right: 16px;
+  }
+
+  /* Native overflow keeps the rail usable with touch, trackpad and wheel; the
+     rail is focusable so keyboard users can arrow-scroll it too. */
+  .media-rail {
+    display: flex;
+    gap: 16px;
+    overflow-x: auto;
+  }
+
+  .media-card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .media-card__thumb {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 164 / 110;
+    /* Neutral fallback while the image loads or when TMDB has none. */
+    background: var(--color-blue-900);
+  }
+
+  .media-card__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .media-card__bookmark {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+
+  .media-card__info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .media-card__title {
+    margin: 0;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  /* Hover/play presentation. Both layers are inert (`pointer-events: none`) and
+     are only revealed while the thumbnail is hovered or contains focus, so the
+     Figma hover state is reachable by keyboard without adding a focus target. */
+  .media-card__play,
+  .media-trending-card__play {
+    position: absolute;
+    inset: 0;
+    border-radius: 8px;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+
+  .media-card__thumb:hover .media-card__play,
+  .media-card__thumb:focus-within .media-card__play,
+  .media-trending-card__thumb:hover .media-trending-card__play,
+  .media-trending-card__thumb:focus-within .media-trending-card__play {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .media-play {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(0 0 0 / 50%);
+    pointer-events: none;
+  }
+
+  .media-play__pill {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    width: 117px;
+    height: 48px;
+    padding-left: 9px;
+    border-radius: 28.5px;
+    background: rgb(255 255 255 / 25%);
+    color: #fff;
+  }
+
+  .media-play__icon {
+    display: block;
+    flex: 0 0 auto;
+    font-size: 30px;
+  }
+
+  .media-play__label {
+    font-size: 18px;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+
+  /* Metadata row: text and icons sit at 75% white, separator dots at 50%, which
+     is how Figma layers the two opacities. */
+  .media-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: rgb(255 255 255 / 75%);
+    font-size: 11px;
+    font-weight: 300;
+    line-height: 1.25;
+  }
+
+  .media-meta__item {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .media-meta__icon {
+    display: block;
+    flex: 0 0 auto;
+    font-size: 10px;
+  }
+
+  .media-meta__dot {
+    flex: 0 0 auto;
+    width: 2px;
+    height: 2px;
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 50%);
+  }
+
+  /* Trending variant: larger type over the gradient scrim. */
+  .media-meta--trending {
+    font-size: 12px;
+  }
+
+  .media-meta--trending .media-meta__icon {
+    font-size: 12px;
+  }
+
+  .media-meta--trending .media-meta__dot {
+    width: 3px;
+    height: 3px;
+  }
+
+  /* Bookmark control: #10141E at 50% for the default/bookmarked circle and
+     white for hover, exactly as in the Figma component. */
+  .media-bookmark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: rgb(16 20 30 / 50%);
+    color: #fff;
+    cursor: pointer;
+  }
+
+  .media-bookmark:hover {
+    background: #fff;
+    color: var(--color-blue-950);
+  }
+
+  .media-bookmark__icon {
+    display: block;
+    font-size: 32px;
+  }
+
+  .media-trending-card {
+    flex: 0 0 auto;
+    width: 240px;
+    min-width: 0;
+  }
+
+  .media-trending-card__thumb {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 240 / 140;
+    background: var(--color-blue-900);
+  }
+
+  .media-trending-card__image {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .media-trending-card__bookmark {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+  }
+
+  /* Info sits inside the clipped thumbnail so its bottom corners inherit the
+     card radius. `justify-content: center` mirrors Figma's centered 70/100px
+     info block. */
+  .media-trending-card__info {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 8px;
+    height: 70px;
+    padding: 16px;
+    background: linear-gradient(to bottom, rgb(0 0 0 / 0%), rgb(0 0 0 / 75%));
+  }
+
+  .media-trending-card__title {
+    margin: 0;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.25;
+    overflow-wrap: anywhere;
+  }
+
+  /* Skeleton: reuses the card geometry so loading and loaded states occupy the
+     same box and swapping content does not shift the layout. */
+  .media-skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .media-skeleton__thumb {
+    display: block;
+    border-radius: 8px;
+    background: var(--color-blue-900);
+    aspect-ratio: 164 / 110;
+  }
+
+  .media-skeleton__lines {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .media-skeleton__line {
+    display: block;
+    height: 14px;
+    border-radius: 4px;
+    background: var(--color-blue-900);
+  }
+
+  .media-skeleton__line--title {
+    width: 70%;
+    height: 18px;
+  }
+
+  .media-skeleton--trending {
+    flex: 0 0 auto;
+    width: 240px;
+  }
+
+  .media-skeleton--trending .media-skeleton__thumb {
+    aspect-ratio: 240 / 140;
+  }
+
+  @media (min-width: 768px) {
+    .media-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      column-gap: 30px;
+      row-gap: 24px;
+      padding-right: 24px;
+    }
+    .media-rail {
+      gap: 40px;
+    }
+    .media-card__thumb {
+      aspect-ratio: 220 / 140;
+    }
+    .media-card__bookmark {
+      top: 16px;
+      right: 16px;
+    }
+    .media-card__title {
+      font-size: 18px;
+    }
+    .media-meta {
+      font-size: 13px;
+    }
+    .media-meta__icon {
+      font-size: 12px;
+    }
+    .media-meta__dot {
+      width: 3px;
+      height: 3px;
+    }
+    .media-meta--trending {
+      font-size: 15px;
+    }
+    .media-trending-card {
+      width: 470px;
+    }
+    .media-trending-card__thumb {
+      aspect-ratio: 470 / 230;
+    }
+    .media-trending-card__bookmark {
+      top: 16px;
+      right: 24px;
+    }
+    .media-trending-card__info {
+      height: 100px;
+      padding: 16px 24px;
+    }
+    .media-trending-card__title {
+      font-size: 24px;
+    }
+    .media-skeleton__thumb {
+      aspect-ratio: 220 / 140;
+    }
+    .media-skeleton__line {
+      height: 16px;
+    }
+    .media-skeleton__line--title {
+      height: 23px;
+    }
+    .media-skeleton--trending {
+      width: 470px;
+    }
+    .media-skeleton--trending .media-skeleton__thumb {
+      aspect-ratio: 470 / 230;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .media-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      column-gap: 40px;
+      row-gap: 24px;
+      padding-right: 36px;
+    }
+    .media-card__thumb {
+      aspect-ratio: 280 / 174;
+    }
+    .media-skeleton__thumb {
+      aspect-ratio: 280 / 174;
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */
