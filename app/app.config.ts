@@ -9,13 +9,6 @@ export default defineAppConfig({
       neutral: 'blue'
     },
 
-    // UHeader slot overrides: centre the navigation menu items with a flex row
-    header: {
-      slots: {
-        center: 'sm: flex items-center gap-2'
-      }
-    },
-
     // UInput base slot override: flatten the input to a bottom-border-only style.
     input: {
       slots: {

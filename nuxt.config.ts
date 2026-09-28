@@ -20,11 +20,6 @@ export default defineNuxtConfig({
     sessionTtlSeconds: '604800'
   },
 
-  // Pre-render the home page at build time for faster initial load
-  routeRules: {
-    '/': { prerender: true }
-  },
-
   // Minimum Nuxt compatibility date; keeps future breaking changes opt-in
   compatibilityDate: '2025-01-15',
 
