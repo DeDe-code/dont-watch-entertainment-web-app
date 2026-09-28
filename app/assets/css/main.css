@@ -218,6 +218,204 @@
       max-width: 279px;
     }
   }
+
+  /* Responsive application shell.
+     Desktop is a fixed-size left sidebar; tablet/mobile are top bars. The
+     shape changes come from CSS breakpoints alone (768px tablet, 1024px
+     desktop) so SSR markup is identical at every width, there is no resize
+     listener, and the shell stays fluid between reference widths. */
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* Skip link: parked off-screen until focused, then pinned to the top-left. */
+  .app-skip-link {
+    position: absolute;
+    top: 0;
+    left: -9999px;
+    z-index: 40;
+  }
+  .app-skip-link:focus-visible {
+    left: 8px;
+    top: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--color-blue-900);
+    color: #fff;
+  }
+
+  /* Main landmark. The flex direction change offsets the nav; this padding
+     restores the Figma content insets for the active breakpoint. */
+  .app-main {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 24px 0 40px 16px;
+  }
+
+  /* Mobile: full-width 56px top bar. */
+  .app-nav-bar {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    height: 56px;
+    padding: 0 16px;
+    background: var(--color-blue-900);
+  }
+
+  /* Icons render as CSS masks that inherit `currentColor`. */
+  .app-nav-logo {
+    justify-self: start;
+    display: inline-flex;
+    color: var(--color-red-500);
+  }
+  .app-nav-logo-icon {
+    display: block;
+    width: 25px;
+    height: 20px;
+  }
+
+  .app-nav-menu {
+    justify-self: center;
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  /* Figma icon states: default blue-grey, hover red, current page white. */
+  .app-nav-link {
+    display: inline-flex;
+    color: var(--color-blue-500);
+  }
+  .app-nav-link:hover {
+    color: var(--color-red-500);
+  }
+  .app-nav-link[aria-current='page'] {
+    color: #fff;
+  }
+  /* Iconify sizes icons as `1em`, so font-size controls the box while the
+     non-square Bookmark icon keeps its own aspect ratio. */
+  .app-nav-icon {
+    font-size: 16px;
+  }
+
+  .app-account {
+    position: relative;
+    justify-self: end;
+  }
+  .app-account-trigger {
+    display: block;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: none;
+    cursor: pointer;
+  }
+  .app-account-avatar {
+    display: block;
+    width: 24px;
+    height: 24px;
+    border-radius: 9999px;
+  }
+  .app-account-menu {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    z-index: 30;
+    min-width: 120px;
+    padding: 8px;
+    border-radius: 10px;
+    background: var(--color-blue-900);
+    box-shadow: 0 8px 24px rgb(0 0 0 / 40%);
+  }
+  .app-account-menu-item {
+    display: block;
+    width: 100%;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 6px;
+    background: none;
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.25;
+    cursor: pointer;
+  }
+  .app-account-menu-item:hover {
+    color: var(--color-red-500);
+  }
+
+  /* Tablet: inset rounded top card (Figma 719x72 at (25,23), radius 10). */
+  @media (min-width: 768px) {
+    .app-main {
+      padding: 32px 0 40px 24px;
+    }
+    .app-nav-bar {
+      height: 72px;
+      margin: 23px 24px 0;
+      padding: 0 20px;
+      border-radius: 10px;
+    }
+    .app-nav-logo-icon {
+      width: 32px;
+      height: 25.6px;
+    }
+    .app-nav-menu {
+      gap: 32px;
+    }
+    .app-nav-icon {
+      font-size: 20px;
+    }
+    .app-account-avatar {
+      width: 32px;
+      height: 32px;
+    }
+  }
+
+  /* Desktop: left sidebar (Figma 96x960 at (32,32), radius 20) with the
+     account control anchored to the bottom. The nav's inline margins supply
+     the content offset, so `.app-main` needs none. */
+  @media (min-width: 1024px) {
+    .app-shell {
+      flex-direction: row;
+    }
+    .app-main {
+      padding: 64px 0 40px;
+    }
+    .app-nav-bar {
+      position: sticky;
+      top: 32px;
+      display: flex;
+      flex: 0 0 auto;
+      flex-direction: column;
+      align-items: center;
+      width: 96px;
+      height: calc(100vh - 64px);
+      margin: 32px 36px 32px 32px;
+      padding: 34px 28px;
+      border-radius: 20px;
+    }
+    .app-nav-menu {
+      flex-direction: column;
+      gap: 40px;
+      margin-top: 72px;
+    }
+    .app-account {
+      margin-top: auto;
+    }
+    .app-account-avatar {
+      width: 40px;
+      height: 40px;
+    }
+    /* Open beside the sidebar (into the content area) so the popup is never
+       pushed past the viewport's bottom edge. */
+    .app-account-menu {
+      top: auto;
+      bottom: 0;
+      right: auto;
+      left: calc(100% + 28px);
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */
