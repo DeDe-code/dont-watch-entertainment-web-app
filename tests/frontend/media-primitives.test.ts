@@ -1,5 +1,7 @@
-import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { describe, expect, it } from 'vitest'
+import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
+import { flushPromises } from '@vue/test-utils'
+import { clearNuxtState } from '#app'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem } from '../../shared/contracts'
 import BookmarkButton from '../../app/components/BookmarkButton.vue'
 import MediaCard from '../../app/components/MediaCard.vue'
@@ -9,6 +11,16 @@ import MediaMeta from '../../app/components/MediaMeta.vue'
 import PlayOverlay from '../../app/components/PlayOverlay.vue'
 import TrendingCard from '../../app/components/TrendingCard.vue'
 import TrendingRail from '../../app/components/TrendingRail.vue'
+
+// Cards integrate the real `useBookmarks`, which reads auth status. Auth is
+// mocked at the composable boundary so these tests exercise bookmark wiring
+// rather than /me bootstrapping (covered by the use-auth tests).
+const { bootstrapMock } = vi.hoisted(() => ({ bootstrapMock: vi.fn() }))
+
+mockNuxtImport('useAuth', () => () => ({
+  status: { value: 'authenticated' },
+  bootstrap: bootstrapMock
+}))
 
 function makeItem(overrides: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -182,19 +194,6 @@ describe('MediaCard', () => {
     expect(wrapper.find('.media-card__thumb').exists()).toBe(true)
     wrapper.unmount()
   })
-
-  it('re-emits the bookmark intent without performing it', async () => {
-    const wrapper = await mountSuspended(MediaCard, {
-      props: { item: makeItem({ isBookmarked: true }) }
-    })
-
-    const bookmark = wrapper.get('.media-card__bookmark')
-    expect(bookmark.attributes('aria-pressed')).toBe('true')
-
-    await bookmark.trigger('click')
-    expect(wrapper.emitted('bookmark-toggle')).toHaveLength(1)
-    wrapper.unmount()
-  })
 })
 
 describe('TrendingCard', () => {
@@ -281,6 +280,152 @@ describe('MediaCardSkeleton', () => {
     )
     expect(wrapper.find('.media-skeleton__thumb').exists()).toBe(true)
     expect(wrapper.find('.media-skeleton__lines').exists()).toBe(false)
+    wrapper.unmount()
+  })
+})
+
+describe('card bookmark integration', () => {
+  let fetchMock: ReturnType<typeof vi.fn>
+
+  beforeEach(async () => {
+    // The bookmark map is shared app state that outlives a mounted card, so
+    // each case starts empty to keep seeding and sync assertions unambiguous.
+    await clearNuxtState()
+    fetchMock = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('$fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('seeds and renders an initially bookmarked item as bookmarked', async () => {
+    const wrapper = await mountSuspended(MediaCard, {
+      props: { item: makeItem({ isBookmarked: true }) }
+    })
+
+    expect(
+      wrapper.get('.media-card__bookmark').attributes('aria-pressed')
+    ).toBe('true')
+    wrapper.unmount()
+  })
+
+  it('seeds and renders an initially unbookmarked item as unbookmarked', async () => {
+    const wrapper = await mountSuspended(MediaCard, {
+      props: { item: makeItem({ isBookmarked: false }) }
+    })
+
+    expect(
+      wrapper.get('.media-card__bookmark').attributes('aria-pressed')
+    ).toBe('false')
+    wrapper.unmount()
+  })
+
+  it('sends one identity-only mutation when its bookmark button is clicked', async () => {
+    const wrapper = await mountSuspended(MediaCard, {
+      props: { item: makeItem() }
+    })
+
+    const bookmark = wrapper.get('.media-card__bookmark')
+    expect(bookmark.attributes('aria-pressed')).toBe('false')
+
+    await bookmark.trigger('click')
+
+    // The optimistic flip is already visible before the request settles.
+    expect(bookmark.attributes('aria-pressed')).toBe('true')
+    expect(bookmark.attributes('aria-label')).toBe(
+      'Remove bookmark for The Great Lands'
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(fetchMock).toHaveBeenCalledWith('/api/bookmarks', {
+      method: 'POST',
+      body: { provider: 'TMDB', externalId: 1, mediaType: 'MOVIE' }
+    })
+    wrapper.unmount()
+  })
+
+  it('updates every MediaCard rendering the same identity', async () => {
+    const first = await mountSuspended(MediaCard, {
+      props: { item: makeItem() }
+    })
+    const second = await mountSuspended(MediaCard, {
+      props: { item: makeItem() }
+    })
+
+    await first.get('.media-card__bookmark').trigger('click')
+
+    expect(first.get('.media-card__bookmark').attributes('aria-pressed')).toBe(
+      'true'
+    )
+    expect(second.get('.media-card__bookmark').attributes('aria-pressed')).toBe(
+      'true'
+    )
+    first.unmount()
+    second.unmount()
+  })
+
+  it('keeps MediaCard and TrendingCard for the same identity in sync', async () => {
+    const card = await mountSuspended(MediaCard, {
+      props: { item: makeItem() }
+    })
+    const trending = await mountSuspended(TrendingCard, {
+      props: { item: makeItem() }
+    })
+
+    await card.get('.media-card__bookmark').trigger('click')
+
+    expect(
+      trending.get('.media-trending-card__bookmark').attributes('aria-pressed')
+    ).toBe('true')
+
+    await trending.get('.media-trending-card__bookmark').trigger('click')
+
+    expect(card.get('.media-card__bookmark').attributes('aria-pressed')).toBe(
+      'false'
+    )
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenLastCalledWith('/api/bookmarks/TMDB/1/MOVIE', {
+      method: 'DELETE'
+    })
+    card.unmount()
+    trending.unmount()
+  })
+
+  it('issues a single request for rapid duplicate clicks', async () => {
+    let resolveRequest!: () => void
+    const inFlight = new Promise<void>((resolve) => {
+      resolveRequest = resolve
+    })
+    fetchMock.mockReturnValue(inFlight)
+
+    const wrapper = await mountSuspended(MediaCard, {
+      props: { item: makeItem() }
+    })
+    const bookmark = wrapper.get('.media-card__bookmark')
+
+    await bookmark.trigger('click')
+    await bookmark.trigger('click')
+    await bookmark.trigger('click')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    resolveRequest()
+    await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('preserves the card presentation while the bookmark is wired', async () => {
+    const wrapper = await mountSuspended(MediaCard, {
+      props: { item: makeItem({ isBookmarked: true }) }
+    })
+
+    expect(wrapper.get('.media-card__title').text()).toBe('The Great Lands')
+    expect(wrapper.get('.media-card__image').attributes('src')).toBe(
+      'https://image.tmdb.org/t/p/w500/backdrop.jpg'
+    )
+    expect(wrapper.find('.media-card__thumb .media-card__play').exists()).toBe(
+      true
+    )
     wrapper.unmount()
   })
 })
