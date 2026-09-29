@@ -871,6 +871,100 @@
       font-size: 24px;
     }
   }
+
+  /* Home page (FE-008).
+     The shell already supplies the outer insets, so this layer only owns the
+     Home frame's vertical rhythm. Each gap is a custom property because the
+     Figma frames change them per breakpoint (375 / 768 / 1440) and three of the
+     four values differ between breakpoints; keeping them in one place per
+     breakpoint avoids scattering the same margin across several rules.
+     Sections must not add horizontal padding: the Trending rail bleeds to the
+     shell edge and the grid carries its own Figma right inset. */
+  .home-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Mobile reference (375). */
+    --home-search-gap: 24px;
+    --home-section-gap: 24px;
+    --home-trending-gap: 16px;
+    --home-recommended-gap: 24px;
+  }
+
+  .home-search {
+    margin-bottom: var(--home-search-gap);
+  }
+
+  .home-section {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Only the gap *between* sections is Figma-specified; the first section
+     starts where the Search field ends. */
+  .home-section + .home-section {
+    margin-top: var(--home-section-gap);
+  }
+
+  /* Figma Text Preset 1 (desktop/tablet) and Preset 1 mobile. Written here
+     rather than composed from `.text-preset-*` because those utilities are
+     plain CSS classes with no responsive variants. */
+  .home-section__heading {
+    margin: 0;
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    font-weight: 300;
+  }
+
+  .home-section--trending .home-section__content {
+    margin-top: var(--home-trending-gap);
+  }
+
+  .home-section--recommended .home-section__content {
+    margin-top: var(--home-recommended-gap);
+  }
+
+  /* Search mode (FE-008 Slice C). The Figma Search frames only need one
+     search-specific rule: the result-count heading uses the Home section
+     heading as-is, and the heading-to-results gap happens to equal the
+     Recommended frame's at every reference width (24 / 24 / 32), so it reuses
+     that value rather than restating the same three breakpoints. Everything
+     else — the search-bar gap and the result grid — is the existing Home
+     rhythm and the shared MediaGrid. */
+  .home-section--search .home-section__content {
+    margin-top: var(--home-recommended-gap);
+  }
+
+  .home-section__error {
+    margin: 0;
+    color: var(--color-red-500);
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  @media (min-width: 768px) {
+    .home-page {
+      --home-search-gap: 32px;
+      --home-section-gap: 40px;
+      --home-trending-gap: 24px;
+      --home-recommended-gap: 24px;
+    }
+    .home-section__heading {
+      font-size: 32px;
+      letter-spacing: -0.5px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .home-page {
+      --home-search-gap: 40px;
+      /* Desktop is the one frame where the Recommended heading has more room
+         below it than the Trending heading does. */
+      --home-recommended-gap: 32px;
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */

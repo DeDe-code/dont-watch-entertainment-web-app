@@ -6,7 +6,11 @@ describe('frontend smoke test', () => {
   it('mounts the home page', async () => {
     const wrapper = await mountSuspended(HomePage)
 
-    expect(wrapper.get('h1').text()).toContain(`don't watch entertainment`)
+    expect(wrapper.get('#home-trending-heading').text()).toBe('Trending')
+    expect(wrapper.get('#home-recommended-heading').text()).toBe(
+      'Recommended for you'
+    )
+
     wrapper.unmount()
   })
 })
