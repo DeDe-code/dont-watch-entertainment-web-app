@@ -965,6 +965,58 @@
       --home-recommended-gap: 32px;
     }
   }
+
+  /* Movies page (FE-009).
+     The shell owns the outer insets and MediaGrid owns the column rules, so
+     this layer carries only the Movies frames' vertical rhythm. Both gaps are
+     custom properties because the Figma frames change them per breakpoint
+     (375 / 768 / 1440). The heading is the shared Text Preset 1 (Preset 1
+     mobile), written out here like the Home section heading because the preset
+     utilities have no responsive variants. No horizontal padding: the grid
+     supplies the Figma right inset itself. */
+  .movies-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Mobile reference (375). */
+    --movies-search-gap: 24px;
+    --movies-grid-gap: 24px;
+  }
+
+  .movies-search {
+    margin-bottom: var(--movies-search-gap);
+  }
+
+  .movies-page__heading {
+    margin: 0 0 var(--movies-grid-gap);
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    font-weight: 300;
+  }
+
+  .movies-page__error {
+    margin: 0;
+    color: var(--color-red-500);
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  @media (min-width: 768px) {
+    .movies-page {
+      --movies-search-gap: 40px;
+    }
+    .movies-page__heading {
+      font-size: 32px;
+      letter-spacing: -0.5px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .movies-page {
+      --movies-grid-gap: 32px;
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */
