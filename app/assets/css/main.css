@@ -1017,6 +1017,60 @@
       --movies-grid-gap: 32px;
     }
   }
+
+  /* TV Series page (FE-010).
+     Like Movies, this layer carries only the TV Series frames' vertical
+     rhythm: the shell owns the outer insets and MediaGrid owns the column
+     rules. The two gaps are custom properties because the Figma frames change
+     them per breakpoint (375 / 768 / 1440) — the tablet search gap is 32px
+     here, which is the one value that differs from the Movies frame (40px), so
+     it is deliberately not shared with `.movies-page`. The heading is the
+     shared Text Preset 1 (Preset 1 mobile), written out like the Movies
+     heading because the preset utilities have no responsive variants. */
+  .tv-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Mobile reference (375). */
+    --tv-search-gap: 24px;
+    --tv-grid-gap: 24px;
+  }
+
+  .tv-search {
+    margin-bottom: var(--tv-search-gap);
+  }
+
+  .tv-page__heading {
+    margin: 0 0 var(--tv-grid-gap);
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    font-weight: 300;
+  }
+
+  .tv-page__error {
+    margin: 0;
+    color: var(--color-red-500);
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  @media (min-width: 768px) {
+    .tv-page {
+      --tv-search-gap: 32px;
+    }
+    .tv-page__heading {
+      font-size: 32px;
+      letter-spacing: -0.5px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .tv-page {
+      --tv-search-gap: 40px;
+      --tv-grid-gap: 32px;
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */
