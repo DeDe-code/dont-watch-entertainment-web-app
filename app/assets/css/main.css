@@ -1071,6 +1071,87 @@
       --tv-grid-gap: 32px;
     }
   }
+
+  /* Bookmarked page (FE-011).
+     Like Home, Movies, and TV Series, this layer carries only the Bookmarked
+     frames' vertical rhythm: the shell owns the outer insets and MediaGrid owns
+     the column rules and the card geometry. The Bookmarked frames reuse the
+     same search / heading / grid heading typography as the other listing pages,
+     so only the section spacing is new. Both gaps are custom properties because
+     the Figma frames change them per breakpoint (375 / 768 / 1440): mobile uses
+     24px for both, tablet splits them (search 32px, sections 40px), and desktop
+     uses 40px for both. */
+  .bookmarked-page {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    /* Mobile reference (375). */
+    --bookmarked-search-gap: 24px;
+    --bookmarked-section-gap: 24px;
+    --bookmarked-heading-gap: 24px;
+  }
+
+  .bookmarked-search {
+    margin-bottom: var(--bookmarked-search-gap);
+  }
+
+  .bookmarked-section {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Only the gap *between* sections is Figma-specified; the first section
+     starts where the Search field ends. */
+  .bookmarked-section + .bookmarked-section {
+    margin-top: var(--bookmarked-section-gap);
+  }
+
+  /* Figma Text Preset 1 (desktop/tablet) and Preset 1 mobile, written out here
+     like the Home, Movies, and TV Series headings because the preset utilities
+     have no responsive variants. */
+  .bookmarked-section__heading {
+    margin: 0 0 var(--bookmarked-heading-gap);
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    font-weight: 300;
+  }
+
+  .bookmarked-section__error {
+    margin: 0;
+    color: var(--color-red-500);
+    font-size: 15px;
+    line-height: 1.25;
+  }
+
+  /* Whole-page empty state. Text-preset scale only: the task defines no other
+     styling for it, and it stands in place of the sections rather than inside
+     one. */
+  .bookmarked-page__empty {
+    margin: 0;
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 300;
+  }
+
+  @media (min-width: 768px) {
+    .bookmarked-page {
+      --bookmarked-search-gap: 32px;
+      --bookmarked-section-gap: 40px;
+    }
+    .bookmarked-section__heading {
+      font-size: 32px;
+      letter-spacing: -0.5px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .bookmarked-page {
+      --bookmarked-search-gap: 40px;
+      --bookmarked-heading-gap: 32px;
+    }
+  }
 }
 
 /* Custom Text Preset Utilities */
