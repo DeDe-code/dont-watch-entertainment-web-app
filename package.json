@@ -50,6 +50,7 @@
     "@nuxt/eslint": "^1.13.0",
     "@nuxt/test-utils": "^4.3.2",
     "@types/bcrypt": "^5.0.2",
+    "@types/node": "^22.20.4",
     "@types/pg": "^8.23.1",
     "@vitest/coverage-v8": "^5.0.0",
     "@vue/test-utils": "^2.5.1",
