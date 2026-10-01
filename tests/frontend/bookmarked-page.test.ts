@@ -1,3 +1,5 @@
+/// <reference types="node" />
+
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
