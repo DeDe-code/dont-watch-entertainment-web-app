@@ -10,13 +10,15 @@ interface FetchStub {
   data: Ref<PaginatedMedia | undefined>
   status: Ref<string>
   error: Ref<unknown>
+  refresh: ReturnType<typeof vi.fn>
 }
 
 // The page-1 read is stubbed at the `useFetch` boundary: these tests own the
 // TV Series media lifecycle, not Nuxt's fetch/SSR mechanics.
-const { fetchByUrl, requestedUrls } = vi.hoisted(() => ({
+const { fetchByUrl, requestedUrls, refreshTvSeries } = vi.hoisted(() => ({
   fetchByUrl: {} as Record<string, FetchStub>,
-  requestedUrls: [] as string[]
+  requestedUrls: [] as string[],
+  refreshTvSeries: vi.fn()
 }))
 
 mockNuxtImport('useFetch', () => (url: string) => {
@@ -48,7 +50,8 @@ function stubFetch(
   fetchByUrl[url] = {
     data: ref(value.data),
     status: ref(value.status),
-    error: ref(value.error ?? null)
+    error: ref(value.error ?? null),
+    refresh: refreshTvSeries
   }
 }
 
@@ -85,6 +88,7 @@ let apiFetch: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   requestedUrls.length = 0
+  refreshTvSeries.mockReset()
   stubFetch(TV, { data: undefined, status: 'pending' })
 
   apiFetch = vi.fn()
@@ -178,6 +182,21 @@ describe('useTvMedia', () => {
     expect(media.hasMore.value).toBe(false)
   })
 
+  it('retries only the page-1 read', async () => {
+    stubFetch(TV, {
+      data: undefined,
+      status: 'error',
+      error: new Error('tv unavailable')
+    })
+
+    const media = await mountTv()
+    media.retryTvSeries()
+
+    expect(refreshTvSeries).toHaveBeenCalledTimes(1)
+    // The retry re-runs the page-1 read, never a continuation request.
+    expect(apiFetch).not.toHaveBeenCalled()
+  })
+
   it('appends the next page', async () => {
     stubFetch(TV, { data: page(1, [item(1)], 2), status: 'success' })
     apiFetch.mockResolvedValueOnce(page(2, [item(2)], 2))
@@ -269,6 +288,9 @@ describe('useTvMedia', () => {
     expect(apiFetch).toHaveBeenLastCalledWith(TV, { query: { page: 2 } })
     expect(identities(media.items.value)).toEqual([1, 2])
     expect(media.error.value).toBeNull()
+    // The continuation retry reuses the next-page request, never the page-1
+    // refresh, and the loaded card was never cleared.
+    expect(refreshTvSeries).not.toHaveBeenCalled()
   })
 
   it('does not automatically retry after a continuation failure', async () => {

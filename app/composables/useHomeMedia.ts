@@ -54,16 +54,21 @@ function sectionStatus(status: string): HomeSectionStatus {
  * state, exactly like one `useMediaSearch` per search scope.
  */
 export function useHomeMedia() {
+  // Each read exposes its own `refresh` through a section-scoped retry below.
+  // That is the whole retry design: Nuxt re-runs exactly one read, so a retry
+  // can never reset the other section's data, status, or error.
   const {
     data: trendingPage,
     status: trendingRequestStatus,
-    error: trendingRequestError
+    error: trendingRequestError,
+    refresh: retryTrending
   } = useFetch<PaginatedMedia>(TRENDING_ENDPOINT)
 
   const {
     data: firstRecommendedPage,
     status: recommendedRequestStatus,
-    error: recommendedRequestError
+    error: recommendedRequestError,
+    refresh: retryRecommended
   } = useFetch<PaginatedMedia>(RECOMMENDED_ENDPOINT)
 
   // `slice` (not `splice`) keeps the shared page-1 response immutable: Nuxt
@@ -119,12 +124,14 @@ export function useHomeMedia() {
   )
 
   /**
-   * Appends the next Recommended page.
+   * Appends the next Recommended page, and is also the retry for a failed
+   * continuation page.
    *
    * The in-flight flag is set before the first `await`, so concurrent callers
    * collapse into a single request per page. A failed page leaves the loaded
-   * items and `recommendedHasMore` untouched: retrying is the continuation
-   * sentinel's decision, never an automatic loop inside the composable.
+   * items and `recommendedHasMore` untouched, so a retry resumes at the same
+   * page with the existing cards still on screen. Retrying is the caller's
+   * decision, never an automatic loop inside the composable.
    */
   async function loadRecommendedNext(): Promise<void> {
     if (recommendedLoadingMore.value || !recommendedHasMore.value) return
@@ -149,6 +156,7 @@ export function useHomeMedia() {
     trendingItems,
     trendingStatus: computed(() => sectionStatus(trendingRequestStatus.value)),
     trendingError: computed(() => trendingRequestError.value),
+    retryTrending,
     recommendedItems,
     recommendedStatus: computed(() =>
       sectionStatus(recommendedRequestStatus.value)
@@ -159,6 +167,7 @@ export function useHomeMedia() {
     recommendedError: computed(
       () => recommendedRequestError.value ?? recommendedContinuationError.value
     ),
+    retryRecommended,
     recommendedHasMore,
     recommendedLoadingMore,
     recommendedTotal,

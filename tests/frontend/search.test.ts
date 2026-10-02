@@ -1,5 +1,6 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { clearNuxtData, clearNuxtState } from '#app'
+import { flushPromises } from '@vue/test-utils'
 import { defineComponent, h, nextTick, type PropType } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem, PaginatedMedia } from '../../shared/contracts'
@@ -174,6 +175,11 @@ const SearchHarness = defineComponent({
       }
     }
 
+    // `data-test` must stay quoted while `onClick` stays unquoted, so the
+    // quoted key lives in its own literal to satisfy both tools.
+    const retryAttrs = { 'data-test': 'retry' }
+    const loadNextAttrs = { 'data-test': 'load-next' }
+
     return () =>
       h('div', [
         h(SearchBar, { modelValue: search.query.value, ...bindQuery }),
@@ -201,7 +207,29 @@ const SearchHarness = defineComponent({
           onLoad: () => {
             void search.loadNext()
           }
-        })
+        }),
+        // Explicit retry affordances: page 1 is retried through the
+        // composable's `retry`, a failed continuation through `loadNext`.
+        h(
+          'button',
+          {
+            ...retryAttrs,
+            onClick: () => {
+              void search.retry()
+            }
+          },
+          'Retry'
+        ),
+        h(
+          'button',
+          {
+            ...loadNextAttrs,
+            onClick: () => {
+              void search.loadNext()
+            }
+          },
+          'Load next'
+        )
       ])
   }
 })
@@ -306,6 +334,59 @@ describe('useMediaSearch', () => {
     expect((wrapper.get('input').element as HTMLInputElement).value).toBe(
       'mars'
     )
+    wrapper.unmount()
+  })
+
+  it('retries a failed page-1 search for the same committed query', async () => {
+    requestFetch
+      .mockRejectedValueOnce(new Error('search unavailable'))
+      .mockResolvedValueOnce(page(1, [item(1, 'Earth')], 1))
+    const wrapper = await mountSuspended(SearchHarness, {
+      props: { scope: 'all' },
+      route: '/?q=earth'
+    })
+
+    expect(wrapper.get('[data-test="status"]').text()).toBe('error')
+
+    await wrapper.get('[data-test="retry"]').trigger('click')
+
+    await vi.waitFor(() =>
+      expect(wrapper.get('[data-test="status"]').text()).toBe('success')
+    )
+    expect(resultTitles(wrapper)).toEqual(['Earth'])
+    // The committed query is unchanged, so the retry repeats it exactly.
+    expect(requestFetch).toHaveBeenCalledTimes(2)
+    expect(requestFetch).toHaveBeenLastCalledWith('/api/media/search', {
+      query: { q: 'earth', type: 'all' }
+    })
+    wrapper.unmount()
+  })
+
+  it('resumes the failed next page when loadNext runs again', async () => {
+    requestFetch.mockResolvedValue(page(1, [item(1, 'Earth')], 2, 2))
+    apiFetch
+      .mockRejectedValueOnce(new Error('page 2 failed'))
+      .mockResolvedValueOnce(page(2, [item(2, 'Mars')], 2, 2))
+    const wrapper = await mountSuspended(SearchHarness, {
+      props: { scope: 'all' },
+      route: '/?q=earth'
+    })
+
+    await wrapper.get('[data-test="load-next"]').trigger('click')
+    await flushPromises()
+    // The loaded page-1 card stays on screen after the continuation failure.
+    expect(resultTitles(wrapper)).toEqual(['Earth'])
+
+    await wrapper.get('[data-test="load-next"]').trigger('click')
+    await vi.waitFor(() =>
+      expect(resultTitles(wrapper)).toEqual(['Earth', 'Mars'])
+    )
+
+    // The retry repeats the page that failed, so nothing is skipped.
+    expect(apiFetch).toHaveBeenCalledTimes(2)
+    expect(apiFetch).toHaveBeenLastCalledWith('/api/media/search', {
+      query: { q: 'earth', type: 'all', page: 2 }
+    })
     wrapper.unmount()
   })
 

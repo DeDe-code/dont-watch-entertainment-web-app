@@ -30,6 +30,11 @@ function sectionStatus(status: string): TvSectionStatus {
  * - the progressive continuation, which appends pages on demand while keeping
  *   page-1 and continuation failures independent.
  *
+ * Retrying is a caller decision, and each failure retries through the request
+ * that produced it: a failed page 1 re-runs the page-1 read, a failed
+ * continuation page re-runs the same next-page request. Nothing else is
+ * re-fetched, so a retry can never disturb the other failure mode's state.
+ *
  * TV data comes from the TV endpoint only: nothing is filtered, re-categorised,
  * or derived from mixed media types, so the backend stays the single authority
  * for what belongs in this list.
@@ -41,7 +46,8 @@ export function useTvMedia() {
   const {
     data: firstPage,
     status: requestStatus,
-    error: requestError
+    error: requestError,
+    refresh: retryTvSeries
   } = useFetch<PaginatedMedia>(TV_ENDPOINT)
 
   const extraPages = ref<PaginatedMedia[]>([])
@@ -77,12 +83,14 @@ export function useTvMedia() {
   )
 
   /**
-   * Appends the next TV Series page.
+   * Appends the next TV Series page, and is also the retry for a failed
+   * continuation page.
    *
    * The in-flight flag is set before the first `await`, so concurrent callers
    * collapse into a single request per page. A failed page leaves the loaded
-   * items and `hasMore` untouched: retrying is the continuation sentinel's
-   * decision, never an automatic loop inside the composable.
+   * items and `hasMore` untouched, so a retry resumes at the same page with the
+   * existing cards still on screen. Retrying is the caller's decision, never an
+   * automatic loop inside the composable.
    */
   async function loadNext(): Promise<void> {
     if (loadingMore.value || !hasMore.value) return
@@ -111,6 +119,7 @@ export function useTvMedia() {
     // while `status` stays `success`.
     error: computed(() => requestError.value ?? continuationError.value),
     total,
+    retryTvSeries,
     hasMore,
     isLoadingMore: loadingMore,
     loadNext

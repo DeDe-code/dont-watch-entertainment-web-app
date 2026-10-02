@@ -15,9 +15,10 @@ import SearchBar from '../../app/components/SearchBar.vue'
 // these tests own the composition, the TV/search mode switch, and the sentinel
 // wiring — not the media lifecycles, which `use-tv-media.test.ts` and
 // `search.test.ts` cover.
-const { tvApi, loadNext } = vi.hoisted(() => ({
+const { tvApi, loadNext, retryTvSeries } = vi.hoisted(() => ({
   tvApi: { current: null as unknown },
-  loadNext: vi.fn()
+  loadNext: vi.fn(),
+  retryTvSeries: vi.fn()
 }))
 
 mockNuxtImport('useTvMedia', () => () => tvApi.current)
@@ -26,11 +27,14 @@ mockNuxtImport('useTvMedia', () => () => tvApi.current)
 // composable is stubbed at its boundary too: these tests own the TV mode switch
 // and the search wiring, while the search lifecycle itself is covered by
 // `search.test.ts`.
-const { searchApi, loadSearchNext, searchScope } = vi.hoisted(() => ({
-  searchApi: { current: null as unknown },
-  loadSearchNext: vi.fn(),
-  searchScope: { current: null as string | null }
-}))
+const { searchApi, loadSearchNext, retrySearch, searchScope } = vi.hoisted(
+  () => ({
+    searchApi: { current: null as unknown },
+    loadSearchNext: vi.fn(),
+    retrySearch: vi.fn(),
+    searchScope: { current: null as string | null }
+  })
+)
 
 mockNuxtImport('useMediaSearch', () => async (scope: string) => {
   searchScope.current = scope
@@ -61,6 +65,7 @@ function setTv(state: TvState = {}) {
     status: ref<TvSectionStatus>(state.status ?? 'success'),
     error: ref(state.error ?? null),
     total: ref(state.total ?? 0),
+    retryTvSeries,
     hasMore: ref(state.hasMore ?? false),
     isLoadingMore: ref(state.isLoadingMore ?? false),
     loadNext
@@ -115,6 +120,7 @@ function setSearch(state: SearchState = {}) {
     error: ref<unknown>(state.error ?? null),
     hasMore: ref(state.hasMore ?? false),
     isLoadingMore: ref(state.isLoadingMore ?? false),
+    retry: retrySearch,
     loadNext: loadSearchNext
   }
   searchApi.current = refs
@@ -123,7 +129,9 @@ function setSearch(state: SearchState = {}) {
 
 beforeEach(() => {
   loadNext.mockReset()
+  retryTvSeries.mockReset()
   loadSearchNext.mockReset()
+  retrySearch.mockReset()
   searchScope.current = null
   setTv()
   setSearch()
@@ -193,7 +201,7 @@ describe('TV Series page — list', () => {
     wrapper.unmount()
   })
 
-  it('shows a safe error and hides the grid when page 1 fails', async () => {
+  it('shows a safe error with a Retry action and hides the grid when page 1 fails', async () => {
     setTv({
       status: 'error',
       error: new Error('TMDB 500: provider unavailable')
@@ -202,11 +210,16 @@ describe('TV Series page — list', () => {
     const wrapper = await mountSuspended(TvSeriesPage)
 
     const error = wrapper.get('.tv-page__error[role="alert"]')
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'TV series are unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('TMDB')
     expect(error.text()).not.toContain('500')
+
+    // Retry re-runs only the normal TV Series request.
+    await error.get('.tv-page__retry').trigger('click')
+    expect(retryTvSeries).toHaveBeenCalledTimes(1)
+    expect(loadNext).not.toHaveBeenCalled()
 
     expect(wrapper.findComponent(MediaGrid).exists()).toBe(false)
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(0)
@@ -270,11 +283,30 @@ describe('TV Series page — progressive continuation', () => {
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     expect(wrapper.findComponent(MediaGrid).exists()).toBe(true)
     expect(wrapper.findComponent(ProgressiveSentinel).exists()).toBe(true)
-    expect(wrapper.get('.tv-page__error[role="status"]').text()).toBe(
+    expect(wrapper.get('.tv-page__error[role="status"]').text()).toContain(
       `Couldn't load more TV series.`
     )
     // No automatic retry: a failed continuation never re-triggers `loadNext`.
     expect(loadNext).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('retries the failed continuation page without clearing the loaded cards', async () => {
+    setTv({
+      items: [tvItem(10)],
+      hasMore: true,
+      error: new Error('continuation failed')
+    })
+
+    const wrapper = await mountSuspended(TvSeriesPage)
+
+    await wrapper.get('.tv-page__retry').trigger('click')
+
+    // Retry reuses the continuation request, not the page-1 refresh, and the
+    // loaded cards stay on screen while it is in flight.
+    expect(loadNext).toHaveBeenCalledTimes(1)
+    expect(retryTvSeries).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     wrapper.unmount()
   })
 })
@@ -400,11 +432,16 @@ describe('TV Series page — search mode', () => {
 
     expect(wrapper.findComponent(SearchBar).exists()).toBe(true)
     const error = wrapper.get('.tv-page__error[role="alert"]')
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Search is unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('TMDB')
     expect(error.text()).not.toContain('500')
+
+    // Retry re-runs only the search page-1 read, not the continuation.
+    await error.get('.tv-page__retry').trigger('click')
+    expect(retrySearch).toHaveBeenCalledTimes(1)
+    expect(loadSearchNext).not.toHaveBeenCalled()
 
     // The normal TV list is not revealed underneath a failed search, and the
     // result-count heading is not shown either.
@@ -468,11 +505,17 @@ describe('TV Series page — search mode', () => {
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     expect(wrapper.findComponent(ProgressiveSentinel).exists()).toBe(true)
     expect(wrapper.get('h1').text()).toBe('Found 42 results for ‘earth’')
-    expect(wrapper.get('.tv-page__error[role="status"]').text()).toBe(
-      `Couldn't load more results.`
-    )
+    const error = wrapper.get('.tv-page__error[role="status"]')
+    expect(error.text()).toContain(`Couldn't load more results.`)
     // No automatic retry: a failed continuation never re-triggers the sentinel.
     expect(loadSearchNext).not.toHaveBeenCalled()
+
+    // Retry reuses the continuation request, not the page-1 refresh, and the
+    // loaded search results stay on screen while it is in flight.
+    await error.get('.tv-page__retry').trigger('click')
+    expect(loadSearchNext).toHaveBeenCalledTimes(1)
+    expect(retrySearch).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     wrapper.unmount()
   })
 

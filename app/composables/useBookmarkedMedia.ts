@@ -48,7 +48,8 @@ function useBookmarkGroup(
   const {
     data: firstPage,
     status: requestStatus,
-    error: requestError
+    error: requestError,
+    refresh: retry
   } = useFetch<PaginatedMedia>(BOOKMARKS_ENDPOINT, {
     query: { mediaType }
   })
@@ -178,6 +179,10 @@ function useBookmarkGroup(
     // while `status` stays `success`.
     error: computed(() => requestError.value ?? continuationError.value),
     total,
+    // Retrying page 1 re-runs only this group's page-1 read. The continuation
+    // retries through `loadNext`, so the two failures stay separate and neither
+    // retry can disturb the other group.
+    retry,
     hasMore,
     isLoadingMore: loadingMore,
     loadNext
@@ -220,6 +225,7 @@ export function useBookmarkedMedia() {
     movieStatus: movies.status,
     movieError: movies.error,
     movieTotal: movies.total,
+    retryMovies: movies.retry,
     movieHasMore: movies.hasMore,
     movieIsLoadingMore: movies.isLoadingMore,
     loadNextMovies: movies.loadNext,
@@ -228,6 +234,7 @@ export function useBookmarkedMedia() {
     tvStatus: tv.status,
     tvError: tv.error,
     tvTotal: tv.total,
+    retryTv: tv.retry,
     tvHasMore: tv.hasMore,
     tvIsLoadingMore: tv.isLoadingMore,
     loadNextTv: tv.loadNext
