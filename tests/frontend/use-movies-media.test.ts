@@ -14,13 +14,15 @@ interface FetchStub {
   data: Ref<PaginatedMedia | undefined>
   status: Ref<string>
   error: Ref<unknown>
+  refresh: ReturnType<typeof vi.fn>
 }
 
 // The page-1 read is stubbed at the `useFetch` boundary: these tests own the
 // Movies media lifecycle, not Nuxt's fetch/SSR mechanics.
-const { fetchByUrl, requestedUrls } = vi.hoisted(() => ({
+const { fetchByUrl, requestedUrls, refreshMovies } = vi.hoisted(() => ({
   fetchByUrl: {} as Record<string, FetchStub>,
-  requestedUrls: [] as string[]
+  requestedUrls: [] as string[],
+  refreshMovies: vi.fn()
 }))
 
 mockNuxtImport('useFetch', () => (url: string) => {
@@ -52,7 +54,8 @@ function stubFetch(
   fetchByUrl[url] = {
     data: ref(value.data),
     status: ref(value.status),
-    error: ref(value.error ?? null)
+    error: ref(value.error ?? null),
+    refresh: refreshMovies
   }
 }
 
@@ -88,6 +91,7 @@ let apiFetch: ReturnType<typeof vi.fn>
 
 beforeEach(() => {
   requestedUrls.length = 0
+  refreshMovies.mockReset()
   stubFetch(MOVIES, { data: undefined, status: 'pending' })
 
   apiFetch = vi.fn()
@@ -172,6 +176,21 @@ describe('useMoviesMedia', () => {
     expect(media.error.value).toBe(failure)
     expect(media.items.value).toEqual([])
     expect(media.hasMore.value).toBe(false)
+  })
+
+  it('retries only the page-1 read', async () => {
+    stubFetch(MOVIES, {
+      data: undefined,
+      status: 'error',
+      error: new Error('movies unavailable')
+    })
+
+    const media = await mountMovies()
+    media.retryMovies()
+
+    expect(refreshMovies).toHaveBeenCalledTimes(1)
+    // The retry re-runs the page-1 read, never a continuation request.
+    expect(apiFetch).not.toHaveBeenCalled()
   })
 
   it('appends the next page', async () => {
@@ -264,6 +283,24 @@ describe('useMoviesMedia', () => {
     expect(media.status.value).toBe('success')
     // Still retryable, but only when the caller decides to.
     expect(media.hasMore.value).toBe(true)
+  })
+
+  it('retries the failed continuation page without clearing loaded items', async () => {
+    stubFetch(MOVIES, {
+      data: page(1, [item('MOVIE', 1)], 2),
+      status: 'success'
+    })
+    apiFetch.mockRejectedValueOnce(new Error('page 2 failed'))
+    apiFetch.mockResolvedValueOnce(page(2, [item('MOVIE', 2)], 2))
+
+    const media = await mountMovies()
+    await media.loadNext()
+    await media.loadNext()
+
+    expect(apiFetch).toHaveBeenCalledTimes(2)
+    expect(apiFetch).toHaveBeenLastCalledWith(MOVIES, { query: { page: 2 } })
+    expect(identities(media.items.value)).toEqual(['MOVIE:1', 'MOVIE:2'])
+    expect(media.error.value).toBeNull()
   })
 
   it('does not automatically retry after a continuation failure', async () => {

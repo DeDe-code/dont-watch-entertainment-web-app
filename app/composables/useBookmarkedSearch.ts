@@ -86,7 +86,8 @@ function useBookmarkSearchGroup(
   const {
     data: firstPage,
     status: requestStatus,
-    error: requestError
+    error: requestError,
+    refresh: retry
   } = firstPageRead
 
   const currentPage = computed(() => {
@@ -236,6 +237,10 @@ function useBookmarkSearchGroup(
     status,
     error: computed(() => requestError.value ?? loadError.value),
     total,
+    // Retrying page 1 re-runs only this group's page-1 read; retrying a
+    // continuation goes through `loadNext`. Keeping them separate is what makes
+    // a retry in one group unable to disturb the other.
+    retry,
     hasMore,
     isLoadingMore,
     loadNext
@@ -343,6 +348,7 @@ export async function useBookmarkedSearch() {
     movieStatus: movies.status,
     movieError: movies.error,
     movieTotal: movies.total,
+    retryMovies: movies.retry,
     movieHasMore: movies.hasMore,
     movieIsLoadingMore: movies.isLoadingMore,
     loadNextMovies: movies.loadNext,
@@ -351,6 +357,7 @@ export async function useBookmarkedSearch() {
     tvStatus: tv.status,
     tvError: tv.error,
     tvTotal: tv.total,
+    retryTv: tv.retry,
     tvHasMore: tv.hasMore,
     tvIsLoadingMore: tv.isLoadingMore,
     loadNextTv: tv.loadNext,

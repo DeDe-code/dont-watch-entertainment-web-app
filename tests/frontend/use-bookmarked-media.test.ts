@@ -34,6 +34,7 @@ interface FetchStub {
   data: Ref<PaginatedMedia | undefined>
   status: Ref<string>
   error: Ref<unknown>
+  refresh: ReturnType<typeof vi.fn>
 }
 
 interface PageOneCall {
@@ -72,8 +73,14 @@ const Harness = defineComponent({
   render: () => h('div')
 })
 
+type MountedHarness = Awaited<ReturnType<typeof mountSuspended>>
+
+// Retained so each mount can be torn down before the shared test globals are
+// restored: Nuxt's app-level async work must not run against a removed $fetch.
+let wrapper: MountedHarness | undefined
+
 async function mountBookmarked() {
-  await mountSuspended(Harness)
+  wrapper = await mountSuspended(Harness)
   return bookmarked
 }
 
@@ -84,7 +91,8 @@ function stubPageOne(
   pageOneByMediaType[mediaType] = {
     data: ref(value.data),
     status: ref(value.status),
-    error: ref(value.error ?? null)
+    error: ref(value.error ?? null),
+    refresh: vi.fn()
   }
 }
 
@@ -153,7 +161,14 @@ beforeEach(async () => {
   )
 })
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(async () => {
+  // Unmount first, then flush, so any pending Nuxt work settles while the
+  // $fetch stub is still installed; only then are the globals restored.
+  wrapper?.unmount()
+  wrapper = undefined
+  await nextTick()
+  vi.unstubAllGlobals()
+})
 
 describe('useBookmarkedMedia', () => {
   describe('initial reads', () => {
@@ -294,6 +309,48 @@ describe('useBookmarkedMedia', () => {
       await media.loadNextMovies()
 
       expect(movieFetch).not.toHaveBeenCalled()
+    })
+
+    it('retries only the failed Movie page-1 read', async () => {
+      stubPageOne('MOVIE', {
+        data: undefined,
+        status: 'error',
+        error: new Error('movies unavailable')
+      })
+      stubPageOne('TV', {
+        data: page(1, [bookmarkItem('TV', 7)], 1, 1),
+        status: 'success'
+      })
+
+      const media = await mountBookmarked()
+      await media.retryMovies()
+
+      // Only the Movie page-1 read re-runs; the TV group and the continuation
+      // request are never involved.
+      expect(pageOneByMediaType['MOVIE']!.refresh).toHaveBeenCalledTimes(1)
+      expect(pageOneByMediaType['TV']!.refresh).not.toHaveBeenCalled()
+      expect(movieFetch).not.toHaveBeenCalled()
+      expect(tvFetch).not.toHaveBeenCalled()
+    })
+
+    it('retries only the failed TV page-1 read', async () => {
+      stubPageOne('MOVIE', {
+        data: page(1, [bookmarkItem('MOVIE', 1)], 1, 1),
+        status: 'success'
+      })
+      stubPageOne('TV', {
+        data: undefined,
+        status: 'error',
+        error: new Error('tv unavailable')
+      })
+
+      const media = await mountBookmarked()
+      await media.retryTv()
+
+      expect(pageOneByMediaType['TV']!.refresh).toHaveBeenCalledTimes(1)
+      expect(pageOneByMediaType['MOVIE']!.refresh).not.toHaveBeenCalled()
+      expect(movieFetch).not.toHaveBeenCalled()
+      expect(tvFetch).not.toHaveBeenCalled()
     })
   })
 

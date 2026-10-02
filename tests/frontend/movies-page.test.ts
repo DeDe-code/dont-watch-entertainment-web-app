@@ -15,9 +15,10 @@ import SearchBar from '../../app/components/SearchBar.vue'
 // boundaries: these tests own the composition, the Movies/search mode switch,
 // and the sentinel wiring — not the media lifecycles, which
 // `use-movies-media.test.ts` and `search.test.ts` cover.
-const { moviesApi, loadNext } = vi.hoisted(() => ({
+const { moviesApi, loadNext, retryMovies } = vi.hoisted(() => ({
   moviesApi: { current: null as unknown },
-  loadNext: vi.fn()
+  loadNext: vi.fn(),
+  retryMovies: vi.fn()
 }))
 
 mockNuxtImport('useMoviesMedia', () => () => moviesApi.current)
@@ -26,11 +27,14 @@ mockNuxtImport('useMoviesMedia', () => () => moviesApi.current)
 // composable is stubbed at its boundary too: these tests own the Movies mode
 // switch and the search wiring, while the search lifecycle itself is covered by
 // `search.test.ts`.
-const { searchApi, loadSearchNext, searchScope } = vi.hoisted(() => ({
-  searchApi: { current: null as unknown },
-  loadSearchNext: vi.fn(),
-  searchScope: { current: null as string | null }
-}))
+const { searchApi, loadSearchNext, retrySearch, searchScope } = vi.hoisted(
+  () => ({
+    searchApi: { current: null as unknown },
+    loadSearchNext: vi.fn(),
+    retrySearch: vi.fn(),
+    searchScope: { current: null as string | null }
+  })
+)
 
 mockNuxtImport('useMediaSearch', () => async (scope: string) => {
   searchScope.current = scope
@@ -61,6 +65,7 @@ function setMovies(state: MoviesState = {}) {
     status: ref<MoviesSectionStatus>(state.status ?? 'success'),
     error: ref(state.error ?? null),
     total: ref(state.total ?? 0),
+    retryMovies,
     hasMore: ref(state.hasMore ?? false),
     isLoadingMore: ref(state.isLoadingMore ?? false),
     loadNext
@@ -96,6 +101,7 @@ function setSearch(state: SearchState = {}) {
     error: ref<unknown>(state.error ?? null),
     hasMore: ref(state.hasMore ?? false),
     isLoadingMore: ref(state.isLoadingMore ?? false),
+    retry: retrySearch,
     loadNext: loadSearchNext
   }
   searchApi.current = refs
@@ -119,7 +125,9 @@ function item(mediaType: MediaType, externalId: number): MediaItem {
 
 beforeEach(() => {
   loadNext.mockReset()
+  retryMovies.mockReset()
   loadSearchNext.mockReset()
+  retrySearch.mockReset()
   searchScope.current = null
   setMovies()
   setSearch()
@@ -186,7 +194,7 @@ describe('Movies page — list', () => {
     wrapper.unmount()
   })
 
-  it('shows a safe error and hides the grid when page 1 fails', async () => {
+  it('shows a safe error with a Retry action and hides the grid when page 1 fails', async () => {
     setMovies({
       status: 'error',
       error: new Error('TMDB 500: provider unavailable')
@@ -195,11 +203,16 @@ describe('Movies page — list', () => {
     const wrapper = await mountSuspended(MoviesPage)
 
     const error = wrapper.get('.movies-page__error[role="alert"]')
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Movies are unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('TMDB')
     expect(error.text()).not.toContain('500')
+
+    // Retry re-runs only the normal Movies request.
+    await error.get('.movies-page__retry').trigger('click')
+    expect(retryMovies).toHaveBeenCalledTimes(1)
+    expect(loadNext).not.toHaveBeenCalled()
 
     expect(wrapper.findComponent(MediaGrid).exists()).toBe(false)
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(0)
@@ -253,11 +266,29 @@ describe('Movies page — progressive continuation', () => {
 
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     expect(wrapper.findComponent(ProgressiveSentinel).exists()).toBe(true)
-    expect(wrapper.get('.movies-page__error[role="status"]').text()).toBe(
-      `Couldn't load more movies.`
-    )
+    const error = wrapper.get('.movies-page__error[role="status"]')
+    expect(error.text()).toContain(`Couldn't load more movies.`)
     // No automatic retry: a failed continuation never re-triggers `loadNext`.
     expect(loadNext).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('retries the failed continuation page without clearing the loaded cards', async () => {
+    setMovies({
+      items: [item('MOVIE', 10)],
+      hasMore: true,
+      error: new Error('continuation failed')
+    })
+
+    const wrapper = await mountSuspended(MoviesPage)
+
+    await wrapper.get('.movies-page__retry').trigger('click')
+
+    // Retry reuses the continuation request, not the page-1 refresh, and the
+    // loaded cards stay on screen while it is in flight.
+    expect(loadNext).toHaveBeenCalledTimes(1)
+    expect(retryMovies).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     wrapper.unmount()
   })
 })
@@ -383,11 +414,16 @@ describe('Movies page — search mode', () => {
 
     expect(wrapper.findComponent(SearchBar).exists()).toBe(true)
     const error = wrapper.get('.movies-page__error[role="alert"]')
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Search is unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('TMDB')
     expect(error.text()).not.toContain('500')
+
+    // Retry re-runs only the search page-1 read, not the continuation.
+    await error.get('.movies-page__retry').trigger('click')
+    expect(retrySearch).toHaveBeenCalledTimes(1)
+    expect(loadSearchNext).not.toHaveBeenCalled()
 
     // The normal Movies list is not revealed underneath a failed search.
     expect(wrapper.findComponent(MediaGrid).exists()).toBe(false)
@@ -448,11 +484,17 @@ describe('Movies page — search mode', () => {
 
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     expect(wrapper.findComponent(ProgressiveSentinel).exists()).toBe(true)
-    expect(wrapper.get('.movies-page__error[role="status"]').text()).toBe(
-      `Couldn't load more results.`
-    )
+    const error = wrapper.get('.movies-page__error[role="status"]')
+    expect(error.text()).toContain(`Couldn't load more results.`)
     // No automatic retry: a failed continuation never re-triggers the sentinel.
     expect(loadSearchNext).not.toHaveBeenCalled()
+
+    // Retry reuses the continuation request, not the page-1 refresh, and the
+    // loaded results stay on screen while it is in flight.
+    await error.get('.movies-page__retry').trigger('click')
+    expect(loadSearchNext).toHaveBeenCalledTimes(1)
+    expect(retrySearch).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     wrapper.unmount()
   })
 

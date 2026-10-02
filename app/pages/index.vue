@@ -13,7 +13,9 @@
   The page only maps composable state onto presentation, and every dataset
   degrades on its own: Trending and Recommended fail independently, and neither
   a search failure nor a search continuation failure restores normal Home while
-  a query is still committed. There is deliberately no page-wide error state.
+  a query is still committed. There is deliberately no page-wide error state;
+  each failed section instead offers its own Retry, which re-runs only that
+  section's read.
 -->
 <script setup lang="ts">
 import type { MediaItem } from '~/../shared/contracts'
@@ -21,9 +23,11 @@ import type { MediaItem } from '~/../shared/contracts'
 const {
   trendingItems,
   trendingStatus,
+  retryTrending,
   recommendedItems,
   recommendedStatus,
   recommendedError,
+  retryRecommended,
   recommendedHasMore,
   recommendedLoadingMore,
   recommendedTotal,
@@ -41,6 +45,7 @@ const {
   total: searchTotal,
   status: searchStatus,
   error: searchError,
+  retry: retrySearch,
   hasMore: searchHasMore,
   isLoadingMore: searchIsLoadingMore,
   loadNext: loadSearchNext
@@ -117,6 +122,13 @@ const searchHeading = computed(() => {
       <div class="home-section__content">
         <p v-if="searchLoadFailed" class="home-section__error" role="alert">
           Search is unavailable right now. Please try again later.
+          <button
+            type="button"
+            class="home-section__retry"
+            @click="retrySearch()"
+          >
+            Retry
+          </button>
         </p>
         <template v-else>
           <MediaGrid>
@@ -139,6 +151,14 @@ const searchHeading = computed(() => {
             role="status"
           >
             Couldn't load more results.
+            <button
+              type="button"
+              class="home-section__retry"
+              :disabled="searchIsLoadingMore"
+              @click="loadSearchNext()"
+            >
+              Retry
+            </button>
           </p>
 
           <ProgressiveSentinel
@@ -162,8 +182,19 @@ const searchHeading = computed(() => {
         </h2>
 
         <div class="home-section__content">
-          <p v-if="trendingStatus === 'error'" class="home-section__error">
+          <p
+            v-if="trendingStatus === 'error'"
+            class="home-section__error"
+            role="alert"
+          >
             Trending is unavailable right now. Please try again later.
+            <button
+              type="button"
+              class="home-section__retry"
+              @click="retryTrending()"
+            >
+              Retry
+            </button>
           </p>
           <TrendingRail v-else label="Trending">
             <template v-if="trendingStatus === 'pending'">
@@ -192,8 +223,19 @@ const searchHeading = computed(() => {
         </h2>
 
         <div class="home-section__content">
-          <p v-if="recommendedLoadFailed" class="home-section__error">
+          <p
+            v-if="recommendedLoadFailed"
+            class="home-section__error"
+            role="alert"
+          >
             Recommendations are unavailable right now. Please try again later.
+            <button
+              type="button"
+              class="home-section__retry"
+              @click="retryRecommended()"
+            >
+              Retry
+            </button>
           </p>
           <template v-else>
             <MediaGrid>
@@ -216,6 +258,14 @@ const searchHeading = computed(() => {
               role="status"
             >
               Couldn't load more recommendations.
+              <button
+                type="button"
+                class="home-section__retry"
+                :disabled="recommendedLoadingMore"
+                @click="loadRecommendedNext()"
+              >
+                Retry
+              </button>
             </p>
 
             <ProgressiveSentinel

@@ -20,11 +20,14 @@ import SearchBar from '../../app/components/SearchBar.vue'
 // primitives, so the composable is stubbed at its boundary: these tests own the
 // composition, the two groups' independence, and the sentinel wiring — not the
 // bookmark lifecycles, which `use-bookmarked-media.test.ts` covers.
-const { bookmarkedApi, loadNextMovies, loadNextTv } = vi.hoisted(() => ({
-  bookmarkedApi: { current: null as unknown },
-  loadNextMovies: vi.fn(),
-  loadNextTv: vi.fn()
-}))
+const { bookmarkedApi, loadNextMovies, loadNextTv, retryMovies, retryTv } =
+  vi.hoisted(() => ({
+    bookmarkedApi: { current: null as unknown },
+    loadNextMovies: vi.fn(),
+    loadNextTv: vi.fn(),
+    retryMovies: vi.fn(),
+    retryTv: vi.fn()
+  }))
 
 mockNuxtImport('useBookmarkedMedia', () => () => bookmarkedApi.current)
 
@@ -41,14 +44,18 @@ const {
   searchApi,
   bookmarkedSearchSpy,
   loadNextSearchMovies,
-  loadNextSearchTv
+  loadNextSearchTv,
+  retrySearchMovies,
+  retrySearchTv
 } = vi.hoisted(() => {
   const api = { current: null as unknown }
   return {
     searchApi: api,
     bookmarkedSearchSpy: vi.fn(() => api.current),
     loadNextSearchMovies: vi.fn(),
-    loadNextSearchTv: vi.fn()
+    loadNextSearchTv: vi.fn(),
+    retrySearchMovies: vi.fn(),
+    retrySearchTv: vi.fn()
   }
 })
 
@@ -96,6 +103,7 @@ function createNormalState(
     movieStatus: ref<BookmarkedSectionStatus>(movies.status ?? 'success'),
     movieError: ref(movies.error ?? null),
     movieTotal: ref(movies.total ?? 0),
+    retryMovies,
     movieHasMore: ref(movies.hasMore ?? false),
     movieIsLoadingMore: ref(movies.isLoadingMore ?? false),
     loadNextMovies,
@@ -104,6 +112,7 @@ function createNormalState(
     tvStatus: ref<BookmarkedSectionStatus>(tv.status ?? 'success'),
     tvError: ref(tv.error ?? null),
     tvTotal: ref(tv.total ?? 0),
+    retryTv,
     tvHasMore: ref(tv.hasMore ?? false),
     tvIsLoadingMore: ref(tv.isLoadingMore ?? false),
     loadNextTv
@@ -144,6 +153,7 @@ function createSearchState(options: SearchStateOptions = {}) {
     movieStatus: ref<BookmarkedSearchStatus>(movies.status ?? 'idle'),
     movieError: ref(movies.error ?? null),
     movieTotal: ref(movieTotal),
+    retryMovies: retrySearchMovies,
     movieHasMore: ref(movies.hasMore ?? false),
     movieIsLoadingMore: ref(movies.isLoadingMore ?? false),
     loadNextMovies: loadNextSearchMovies,
@@ -152,6 +162,7 @@ function createSearchState(options: SearchStateOptions = {}) {
     tvStatus: ref<BookmarkedSearchStatus>(tv.status ?? 'idle'),
     tvError: ref(tv.error ?? null),
     tvTotal: ref(tvTotal),
+    retryTv: retrySearchTv,
     tvHasMore: ref(tv.hasMore ?? false),
     tvIsLoadingMore: ref(tv.isLoadingMore ?? false),
     loadNextTv: loadNextSearchTv,
@@ -246,10 +257,14 @@ function cardTitles(wrapper: MountedPage): string[] {
 beforeEach(() => {
   loadNextMovies.mockReset()
   loadNextTv.mockReset()
+  retryMovies.mockReset()
+  retryTv.mockReset()
   mediaSearchSpy.mockReset()
   bookmarkedSearchSpy.mockClear()
   loadNextSearchMovies.mockReset()
   loadNextSearchTv.mockReset()
+  retrySearchMovies.mockReset()
+  retrySearchTv.mockReset()
   setBookmarked()
   setBookmarkedSearch()
 })
@@ -400,11 +415,17 @@ describe('Bookmarked page — initial failure', () => {
     const error = section(wrapper, MOVIE_HEADING).get(
       '.bookmarked-section__error[role="alert"]'
     )
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Bookmarked movies are unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('DB')
     expect(error.text()).not.toContain('500')
+
+    // Retry re-runs only the Movie page-1 read.
+    await error.get('.bookmarked-section__retry').trigger('click')
+    expect(retryMovies).toHaveBeenCalledTimes(1)
+    expect(retryTv).not.toHaveBeenCalled()
+    expect(loadNextMovies).not.toHaveBeenCalled()
 
     // The failed group keeps its heading but shows no cards, and the other
     // group stays fully usable.
@@ -427,10 +448,16 @@ describe('Bookmarked page — initial failure', () => {
     const error = section(wrapper, TV_HEADING).get(
       '.bookmarked-section__error[role="alert"]'
     )
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Bookmarked TV series are unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('DB')
+
+    // Retry re-runs only the TV page-1 read.
+    await error.get('.bookmarked-section__retry').trigger('click')
+    expect(retryTv).toHaveBeenCalledTimes(1)
+    expect(retryMovies).not.toHaveBeenCalled()
+    expect(loadNextTv).not.toHaveBeenCalled()
 
     expect(section(wrapper, TV_HEADING).findComponent(MediaGrid).exists()).toBe(
       false
@@ -638,9 +665,9 @@ describe('Bookmarked page — Movie continuation', () => {
     expect(movie.findAllComponents(MediaCard)).toHaveLength(1)
     expect(movie.findComponent(MediaGrid).exists()).toBe(true)
     expect(movie.findComponent(ProgressiveSentinel).exists()).toBe(true)
-    expect(movie.get('.bookmarked-section__error[role="status"]').text()).toBe(
-      `Couldn't load more bookmarked movies.`
-    )
+    expect(
+      movie.get('.bookmarked-section__error[role="status"]').text()
+    ).toContain(`Couldn't load more bookmarked movies.`)
 
     // The TV group is untouched, and nothing retries automatically.
     expect(cardTitles(wrapper)).toEqual(['MOVIE 10', 'TV 20'])
@@ -648,6 +675,32 @@ describe('Bookmarked page — Movie continuation', () => {
       section(wrapper, TV_HEADING).find('.bookmarked-section__error').exists()
     ).toBe(false)
     expect(loadNextMovies).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('retries the failed Movie continuation page without clearing the loaded cards', async () => {
+    setBookmarked({
+      movies: {
+        items: [item('MOVIE', 10)],
+        hasMore: true,
+        error: new Error('continuation failed')
+      },
+      tv: { items: [item('TV', 20)] }
+    })
+
+    const wrapper = await mountSuspended(BookmarkedPage)
+
+    await section(wrapper, MOVIE_HEADING)
+      .get('.bookmarked-section__retry')
+      .trigger('click')
+
+    // Retry reuses the Movie continuation request, not the page-1 refresh, and
+    // the TV group is never retried.
+    expect(loadNextMovies).toHaveBeenCalledTimes(1)
+    expect(retryMovies).not.toHaveBeenCalled()
+    expect(loadNextTv).not.toHaveBeenCalled()
+    expect(retryTv).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(2)
     wrapper.unmount()
   })
 })
@@ -708,9 +761,9 @@ describe('Bookmarked page — TV continuation', () => {
 
     const tv = section(wrapper, TV_HEADING)
     expect(tv.findAllComponents(MediaCard)).toHaveLength(1)
-    expect(tv.get('.bookmarked-section__error[role="status"]').text()).toBe(
-      `Couldn't load more bookmarked TV series.`
-    )
+    expect(
+      tv.get('.bookmarked-section__error[role="status"]').text()
+    ).toContain(`Couldn't load more bookmarked TV series.`)
 
     // The Movie group is untouched, and nothing retries automatically.
     expect(cardTitles(wrapper)).toEqual(['MOVIE 10', 'TV 20'])
@@ -720,6 +773,32 @@ describe('Bookmarked page — TV continuation', () => {
         .exists()
     ).toBe(false)
     expect(loadNextTv).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('retries the failed TV continuation page without clearing the loaded cards', async () => {
+    setBookmarked({
+      movies: { items: [item('MOVIE', 10)] },
+      tv: {
+        items: [item('TV', 20)],
+        hasMore: true,
+        error: new Error('continuation failed')
+      }
+    })
+
+    const wrapper = await mountSuspended(BookmarkedPage)
+
+    await section(wrapper, TV_HEADING)
+      .get('.bookmarked-section__retry')
+      .trigger('click')
+
+    // Retry reuses the TV continuation request, not the page-1 refresh, and the
+    // Movie group is never retried.
+    expect(loadNextTv).toHaveBeenCalledTimes(1)
+    expect(retryTv).not.toHaveBeenCalled()
+    expect(loadNextMovies).not.toHaveBeenCalled()
+    expect(retryMovies).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(2)
     wrapper.unmount()
   })
 })
@@ -1162,13 +1241,18 @@ describe('Bookmarked page — search failure', () => {
     const error = section(wrapper, MOVIE_HEADING).get(
       '.bookmarked-section__error[role="alert"]'
     )
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Bookmarked movie search is unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('DB')
     expect(error.text()).not.toContain('500')
     expect(cardTitles(wrapper)).toEqual(['Search TV 2'])
     expect(wrapper.find('h1').exists()).toBe(false)
+
+    // Retry re-runs only the Movie search page 1, not the successful TV search.
+    await error.get('.bookmarked-section__retry').trigger('click')
+    expect(retrySearchMovies).toHaveBeenCalledTimes(1)
+    expect(retrySearchTv).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -1189,13 +1273,18 @@ describe('Bookmarked page — search failure', () => {
     const error = section(wrapper, TV_HEADING).get(
       '.bookmarked-section__error[role="alert"]'
     )
-    expect(error.text()).toBe(
+    expect(error.text()).toContain(
       'Bookmarked TV search is unavailable right now. Please try again later.'
     )
     expect(error.text()).not.toContain('DB')
     expect(error.text()).not.toContain('500')
     expect(cardTitles(wrapper)).toEqual(['Search MOVIE 1'])
     expect(wrapper.find('h1').exists()).toBe(false)
+
+    // Retry re-runs only the TV search page 1, not the successful Movie search.
+    await error.get('.bookmarked-section__retry').trigger('click')
+    expect(retrySearchTv).toHaveBeenCalledTimes(1)
+    expect(retrySearchMovies).not.toHaveBeenCalled()
     wrapper.unmount()
   })
 
@@ -1366,9 +1455,9 @@ describe('Bookmarked page — search continuation', () => {
     expect(movie.findAllComponents(MediaCard)).toHaveLength(1)
     expect(movie.findAllComponents(MediaGrid)).toHaveLength(1)
     expect(movie.findComponent(ProgressiveSentinel).exists()).toBe(true)
-    expect(movie.get('.bookmarked-section__error[role="status"]').text()).toBe(
-      `Couldn't load more bookmarked movie results.`
-    )
+    expect(
+      movie.get('.bookmarked-section__error[role="status"]').text()
+    ).toContain(`Couldn't load more bookmarked movie results.`)
 
     // The TV search is untouched, and nothing retries automatically.
     expect(cardTitles(wrapper)).toEqual(['Search MOVIE 1', 'Search TV 2'])
@@ -1376,6 +1465,18 @@ describe('Bookmarked page — search continuation', () => {
       section(wrapper, TV_HEADING).find('.bookmarked-section__error').exists()
     ).toBe(false)
     expect(loadNextSearchMovies).not.toHaveBeenCalled()
+
+    // Retry reuses the Movie continuation request while keeping the loaded
+    // cards, and never touches the TV continuation.
+    await movie
+      .get(
+        '.bookmarked-section__error[role="status"] .bookmarked-section__retry'
+      )
+      .trigger('click')
+    expect(loadNextSearchMovies).toHaveBeenCalledTimes(1)
+    expect(loadNextSearchTv).not.toHaveBeenCalled()
+    expect(retrySearchMovies).not.toHaveBeenCalled()
+    expect(cardTitles(wrapper)).toEqual(['Search MOVIE 1', 'Search TV 2'])
     wrapper.unmount()
   })
 
@@ -1402,9 +1503,9 @@ describe('Bookmarked page — search continuation', () => {
     const tv = section(wrapper, TV_HEADING)
     expect(tv.findAllComponents(MediaCard)).toHaveLength(1)
     expect(tv.findComponent(ProgressiveSentinel).exists()).toBe(true)
-    expect(tv.get('.bookmarked-section__error[role="status"]').text()).toBe(
-      `Couldn't load more bookmarked TV results.`
-    )
+    expect(
+      tv.get('.bookmarked-section__error[role="status"]').text()
+    ).toContain(`Couldn't load more bookmarked TV results.`)
 
     expect(cardTitles(wrapper)).toEqual(['Search MOVIE 1', 'Search TV 2'])
     expect(
@@ -1413,6 +1514,18 @@ describe('Bookmarked page — search continuation', () => {
         .exists()
     ).toBe(false)
     expect(loadNextSearchTv).not.toHaveBeenCalled()
+
+    // Retry reuses the TV continuation request while keeping the loaded cards,
+    // and never touches the Movie continuation.
+    await tv
+      .get(
+        '.bookmarked-section__error[role="status"] .bookmarked-section__retry'
+      )
+      .trigger('click')
+    expect(loadNextSearchTv).toHaveBeenCalledTimes(1)
+    expect(loadNextSearchMovies).not.toHaveBeenCalled()
+    expect(retrySearchTv).not.toHaveBeenCalled()
+    expect(cardTitles(wrapper)).toEqual(['Search MOVIE 1', 'Search TV 2'])
     wrapper.unmount()
   })
 })

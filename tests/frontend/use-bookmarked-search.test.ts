@@ -94,6 +94,11 @@ const Harness = defineComponent({
       }
     }
 
+    // `data-test` must stay quoted while `onClick` stays unquoted, so the
+    // quoted key lives in its own literal to satisfy both tools.
+    const retryMoviesAttrs = { 'data-test': 'retry-movies' }
+    const retryTvAttrs = { 'data-test': 'retry-tv' }
+
     const list = (items: MediaItem[], className: string) =>
       h(
         'ul',
@@ -125,6 +130,16 @@ const Harness = defineComponent({
           'p',
           { 'data-test': 'tv-error' },
           search.tvError.value ? 'failed' : ''
+        ),
+        h(
+          'button',
+          { ...retryMoviesAttrs, onClick: () => void search.retryMovies() },
+          'Retry'
+        ),
+        h(
+          'button',
+          { ...retryTvAttrs, onClick: () => void search.retryTv() },
+          'Retry'
         ),
         list(search.movieResults.value, 'movie-result'),
         list(search.tvResults.value, 'tv-result'),
@@ -438,6 +453,64 @@ describe('useBookmarkedSearch — results and totals', () => {
     const wrapper = await mountSearch('/bookmarked?q=earth')
 
     expect(testText(wrapper, 'total')).toBe('10')
+    wrapper.unmount()
+  })
+})
+
+describe('useBookmarkedSearch — page-1 retry', () => {
+  it('re-runs only the failed Movie page 1 for the committed query', async () => {
+    let movieFails = true
+    pageOneResponse = (mediaType, query) =>
+      mediaType === 'MOVIE' && movieFails
+        ? Promise.reject(new Error('bookmark search failed'))
+        : Promise.resolve(
+            page(1, [bookmark(mediaType, 1, `${query} ${mediaType}`)], 1, 1)
+          )
+
+    const wrapper = await mountSearch('/bookmarked?q=earth')
+    await vi.waitFor(() =>
+      expect(testText(wrapper, 'movie-status')).toBe('error')
+    )
+    expect(tvTitles(wrapper)).toEqual(['earth TV'])
+
+    movieFails = false
+    const requestsBefore = bookmarkRequestCalls().length
+    await wrapper.get('[data-test="retry-movies"]').trigger('click')
+
+    await vi.waitFor(() =>
+      expect(testText(wrapper, 'movie-status')).toBe('success')
+    )
+    expect(movieTitles(wrapper)).toEqual(['earth MOVIE'])
+    // Only the Movie page-1 read re-ran, for the current committed query, and
+    // the TV search was not retried or reset.
+    expect(bookmarkRequestCalls().slice(requestsBefore)).toEqual([
+      [BOOKMARKS, { query: { q: 'earth', mediaType: 'MOVIE' } }]
+    ])
+    expect(testText(wrapper, 'tv-status')).toBe('success')
+    expect(tvTitles(wrapper)).toEqual(['earth TV'])
+    wrapper.unmount()
+  })
+
+  it('retries each failed group independently', async () => {
+    pageOneResponse = (mediaType, query) =>
+      Promise.resolve(
+        page(1, [bookmark(mediaType, 1, `${query} ${mediaType}`)], 1, 1)
+      )
+
+    const wrapper = await mountSearch('/bookmarked?q=earth')
+    expect(movieTitles(wrapper)).toEqual(['earth MOVIE'])
+
+    // `pageOneResponse` was already consumed for both groups; a retry must
+    // re-run the read rather than being served from the settled state.
+    const requestsBefore = bookmarkRequestCalls().length
+    await wrapper.get('[data-test="retry-tv"]').trigger('click')
+
+    await vi.waitFor(() =>
+      expect(bookmarkRequestCalls().length).toBe(requestsBefore + 1)
+    )
+    expect(bookmarkRequestCalls().slice(requestsBefore)).toEqual([
+      [BOOKMARKS, { query: { q: 'earth', mediaType: 'TV' } }]
+    ])
     wrapper.unmount()
   })
 })

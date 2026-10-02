@@ -944,6 +944,44 @@
     line-height: 1.25;
   }
 
+  /* Inline retry beside a failed section's message (Home sections, Movies
+     list, TV Series list, Bookmarked sections). One declaration block, so the
+     pages cannot drift: it reuses the auth form's white-on-blue button language
+     at sentence size, because a section error is a line of text with an
+     affordance beside it rather than a standalone action block. */
+  .home-section__retry,
+  .movies-page__retry,
+  .tv-page__retry,
+  .bookmarked-section__retry {
+    margin-left: 8px;
+    border: 0;
+    border-radius: 4px;
+    background: white;
+    color: var(--color-blue-900);
+    padding: 4px 12px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .home-section__retry:hover:not(:disabled),
+  .home-section__retry:active:not(:disabled),
+  .movies-page__retry:hover:not(:disabled),
+  .movies-page__retry:active:not(:disabled),
+  .tv-page__retry:hover:not(:disabled),
+  .tv-page__retry:active:not(:disabled),
+  .bookmarked-section__retry:hover:not(:disabled),
+  .bookmarked-section__retry:active:not(:disabled) {
+    background: var(--color-red-500);
+    color: white;
+  }
+  .home-section__retry:disabled,
+  .movies-page__retry:disabled,
+  .tv-page__retry:disabled,
+  .bookmarked-section__retry:disabled {
+    cursor: wait;
+    opacity: 0.7;
+  }
+
   @media (min-width: 768px) {
     .home-page {
       --home-search-gap: 32px;
@@ -1150,6 +1188,100 @@
     .bookmarked-page {
       --bookmarked-search-gap: 40px;
       --bookmarked-heading-gap: 32px;
+    }
+  }
+
+  /* Application error page (app/error.vue). Nuxt renders it outside the
+     regular layouts, so it centers itself in the viewport and reuses the
+     existing card language (blue-900 surface, 20px radius, white primary
+     action that turns red on hover) instead of introducing a second visual
+     system. */
+  .error-page {
+    box-sizing: border-box;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 24px;
+    background: var(--color-blue-950);
+  }
+
+  .error-card {
+    box-sizing: border-box;
+    width: min(100%, 400px);
+    padding: 32px;
+    text-align: center;
+    background: var(--color-blue-900);
+    border-radius: 20px;
+  }
+
+  /* Text Preset 1, written out here like the other page headings because the
+     preset utilities have no responsive variants. */
+  .error-title {
+    margin: 0 0 16px;
+    font-size: 32px;
+    line-height: 1.25;
+    letter-spacing: -0.5px;
+    font-weight: 300;
+  }
+
+  /* White at 75% keeps secondary copy above the 4.5:1 contrast floor on the
+     blue-900 card, which the blue-500 token does not reach. */
+  .error-message {
+    margin: 0 0 32px;
+    color: rgb(255 255 255 / 75%);
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 300;
+  }
+
+  .error-action {
+    min-width: 160px;
+    height: 48px;
+    padding: 0 24px;
+    border: 0;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--color-blue-900);
+    font-size: 15px;
+    line-height: 1.25;
+    font-weight: 300;
+    cursor: pointer;
+  }
+
+  .error-action:hover,
+  .error-action:active {
+    background: var(--color-red-500);
+    color: #fff;
+  }
+
+  @media (max-width: 600px) {
+    .error-card {
+      padding: 24px;
+    }
+    .error-title {
+      font-size: 20px;
+      letter-spacing: -0.3px;
+    }
+  }
+
+  /* Reduced motion (FE-012). When the user asks the OS/browser for less motion,
+     every decorative transition and animation collapses to effectively
+     immediate. Only the durations and delays are neutralised: the hover/focus
+     end states themselves (colour, opacity, visibility) are untouched, so no
+     interaction feedback is lost — it simply arrives without easing. This lives
+     in the `app` layer, which always sorts last (see the layer comment above),
+     so it wins over Tailwind utilities such as `transition-colors` and any
+     third-party component styles in any injection order, without `!important`. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms;
+      animation-delay: 0s;
+      animation-iteration-count: 1;
+      transition-duration: 0.01ms;
+      transition-delay: 0s;
     }
   }
 }

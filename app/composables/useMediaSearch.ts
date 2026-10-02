@@ -85,10 +85,16 @@ export async function useMediaSearch(scope: MediaSearchScope) {
   // Page 1 is tagged with the query it was fetched for. Keeping the tag means a
   // response (or hydrated payload) from a superseded query is never surfaced
   // while the current one is still loading.
+  //
+  // `retry` re-runs exactly this read against `activeQuery`, so a retry can
+  // only ever repeat the query the URL currently commits to. A failed
+  // continuation is retried through `loadNext` instead, so the two retries
+  // stay separate and neither discards already-loaded pages.
   const {
     data: firstPage,
     status: requestStatus,
-    error: requestError
+    error: requestError,
+    refresh: retry
   } = await useAsyncData<TaggedSearchPage | null>(
     `media-search:${scope}`,
     () => {
@@ -182,6 +188,7 @@ export async function useMediaSearch(scope: MediaSearchScope) {
     total,
     status,
     error,
+    retry,
     hasMore,
     isLoadingMore: loadingMore,
     loadNext

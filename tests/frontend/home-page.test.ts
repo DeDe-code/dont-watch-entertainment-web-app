@@ -16,10 +16,13 @@ import TrendingRail from '../../app/components/TrendingRail.vue'
 // so the composable is stubbed at its boundary: these tests own the composition,
 // the independent degradation, and the sentinel wiring — not the Home media
 // lifecycle (covered by `use-home-media.test.ts`).
-const { homeApi, loadRecommendedNext } = vi.hoisted(() => ({
-  homeApi: { current: null as unknown },
-  loadRecommendedNext: vi.fn()
-}))
+const { homeApi, loadRecommendedNext, retryTrending, retryRecommended } =
+  vi.hoisted(() => ({
+    homeApi: { current: null as unknown },
+    loadRecommendedNext: vi.fn(),
+    retryTrending: vi.fn(),
+    retryRecommended: vi.fn()
+  }))
 
 mockNuxtImport('useHomeMedia', () => () => homeApi.current)
 
@@ -27,9 +30,10 @@ mockNuxtImport('useHomeMedia', () => () => homeApi.current)
 // composable is stubbed the same way: these tests own the mode switch and the
 // search wiring, while `use-media-search`'s own lifecycle is covered by
 // `search.test.ts`.
-const { searchApi, loadSearchNext } = vi.hoisted(() => ({
+const { searchApi, loadSearchNext, retrySearch } = vi.hoisted(() => ({
   searchApi: { current: null as unknown },
-  loadSearchNext: vi.fn()
+  loadSearchNext: vi.fn(),
+  retrySearch: vi.fn()
 }))
 
 mockNuxtImport('useMediaSearch', () => async () => searchApi.current)
@@ -65,6 +69,8 @@ function setHome(state: HomeState = {}) {
     recommendedHasMore: ref(state.recommendedHasMore ?? false),
     recommendedLoadingMore: ref(state.recommendedLoadingMore ?? false),
     recommendedTotal: ref(state.recommendedTotal ?? 0),
+    retryTrending,
+    retryRecommended,
     loadRecommendedNext
   }
 }
@@ -113,6 +119,7 @@ function setSearch(state: SearchState = {}) {
     error: ref<unknown>(state.error ?? null),
     hasMore: ref(state.hasMore ?? false),
     isLoadingMore: ref(state.isLoadingMore ?? false),
+    retry: retrySearch,
     loadNext: loadSearchNext
   }
   searchApi.current = refs
@@ -121,7 +128,10 @@ function setSearch(state: SearchState = {}) {
 
 beforeEach(() => {
   loadRecommendedNext.mockReset()
+  retryTrending.mockReset()
+  retryRecommended.mockReset()
   loadSearchNext.mockReset()
+  retrySearch.mockReset()
   setHome()
   setSearch()
 })
@@ -321,6 +331,69 @@ describe('Home page — independent section failure', () => {
     )
     wrapper.unmount()
   })
+
+  it('offers a Retry that retries only the failed Trending section', async () => {
+    setHome({
+      trendingStatus: 'error',
+      recommendedItems: [item('MOVIE', 10)]
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    const retry = wrapper.get(
+      '.home-section--trending .home-section__error button'
+    )
+    expect(retry.text()).toBe('Retry')
+    await retry.trigger('click')
+
+    expect(retryTrending).toHaveBeenCalledTimes(1)
+    expect(retryRecommended).not.toHaveBeenCalled()
+    // The healthy Recommended section keeps its cards.
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('offers a Retry that retries only the failed Recommended section', async () => {
+    setHome({
+      trendingItems: [item('MOVIE', 1)],
+      recommendedStatus: 'error',
+      recommendedError: new Error('recommended unavailable')
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    const retry = wrapper.get(
+      '.home-section--recommended .home-section__error button'
+    )
+    expect(retry.text()).toBe('Retry')
+    await retry.trigger('click')
+
+    expect(retryRecommended).toHaveBeenCalledTimes(1)
+    expect(retryTrending).not.toHaveBeenCalled()
+    // The healthy Trending section keeps its card.
+    expect(wrapper.findAllComponents(TrendingCard)).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('offers a Retry that resumes a failed Recommended continuation', async () => {
+    setHome({
+      recommendedItems: [item('MOVIE', 10)],
+      recommendedHasMore: true,
+      recommendedError: new Error('continuation failed')
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    const retry = wrapper.get(
+      '.home-section--recommended .home-section__error button'
+    )
+    await retry.trigger('click')
+
+    expect(loadRecommendedNext).toHaveBeenCalledTimes(1)
+    // The already-loaded card stays visible behind the retry.
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
+    wrapper.unmount()
+  })
 })
 
 describe('Home page — search mode', () => {
@@ -332,6 +405,8 @@ describe('Home page — search mode', () => {
     expect(wrapper.find('.home-section--search').exists()).toBe(false)
     expect(wrapper.find('.home-section--trending').exists()).toBe(true)
     expect(wrapper.find('.home-section--recommended').exists()).toBe(true)
+    // No search Retry leaks into the normal Home experience.
+    expect(wrapper.find('.home-section__retry').exists()).toBe(false)
     wrapper.unmount()
   })
 
@@ -500,6 +575,48 @@ describe('Home page — search mode', () => {
     )
     expect(wrapper.findComponent(MediaGrid).exists()).toBe(false)
     expect(wrapper.find('.home-section--trending').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('offers a Retry on a failed page-1 search that re-runs the search read', async () => {
+    setSearch({
+      activeQuery: 'earth',
+      status: 'error',
+      error: new Error('search unavailable')
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    const retry = wrapper.get(
+      '.home-section--search .home-section__error button'
+    )
+    expect(retry.text()).toBe('Retry')
+    await retry.trigger('click')
+
+    // Page 1 is retried through the search retry, not the continuation.
+    expect(retrySearch).toHaveBeenCalledTimes(1)
+    expect(loadSearchNext).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('offers a Retry that resumes a failed search continuation', async () => {
+    setSearch({
+      activeQuery: 'earth',
+      status: 'success',
+      results: [item('MOVIE', 21)],
+      hasMore: true,
+      error: new Error('continuation failed')
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    const retry = wrapper.get('.home-section__error[role="status"] button')
+    await retry.trigger('click')
+
+    // The loaded card stays visible and the continuation is retried as-is.
+    expect(loadSearchNext).toHaveBeenCalledTimes(1)
+    expect(retrySearch).not.toHaveBeenCalled()
+    expect(wrapper.findAllComponents(MediaCard)).toHaveLength(1)
     wrapper.unmount()
   })
 

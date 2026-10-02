@@ -15,15 +15,24 @@
   Page-1 failure and continuation failure are deliberately different in both
 modes: a failed page 1 has no list to show, so it replaces the grid while the
 SearchBar stays; a failed continuation keeps every loaded card and reports
-itself beside them. In normal mode, the static `Movies` heading remains visible
-during a page-1 failure. In search mode, the result-count heading is
-intentionally visible only after a successful search page 1. Neither failure
-ever falls back to the other mode, and there is no page-wide spinner or error
-state.
+itself beside them. Each failure offers its own Retry: page 1 re-runs only the
+page-1 read, the continuation re-runs only the failed next page. In normal mode
+the static `Movies` heading remains visible during a page-1 failure; in search
+mode the result-count heading is intentionally visible only after a successful
+search page 1. Neither failure ever falls back to the other mode, and there is
+no page-wide spinner or error state.
 -->
 <script setup lang="ts">
-const { items, status, error, total, hasMore, isLoadingMore, loadNext } =
-  useMoviesMedia()
+const {
+  items,
+  status,
+  error,
+  total,
+  retryMovies,
+  hasMore,
+  isLoadingMore,
+  loadNext
+} = useMoviesMedia()
 
 const {
   query: searchQuery,
@@ -32,6 +41,7 @@ const {
   total: searchTotal,
   status: searchStatus,
   error: searchError,
+  retry: retrySearch,
   hasMore: searchHasMore,
   isLoadingMore: searchIsLoadingMore,
   loadNext: loadSearchNext
@@ -85,6 +95,9 @@ const searchHeading = computed(() => {
 
       <p v-if="searchLoadFailed" class="movies-page__error" role="alert">
         Search is unavailable right now. Please try again later.
+        <button type="button" class="movies-page__retry" @click="retrySearch()">
+          Retry
+        </button>
       </p>
       <template v-else>
         <MediaGrid>
@@ -107,6 +120,14 @@ const searchHeading = computed(() => {
           role="status"
         >
           Couldn't load more results.
+          <button
+            type="button"
+            class="movies-page__retry"
+            :disabled="searchIsLoadingMore"
+            @click="loadSearchNext()"
+          >
+            Retry
+          </button>
         </p>
 
         <ProgressiveSentinel
@@ -124,6 +145,9 @@ const searchHeading = computed(() => {
 
       <p v-if="loadFailed" class="movies-page__error" role="alert">
         Movies are unavailable right now. Please try again later.
+        <button type="button" class="movies-page__retry" @click="retryMovies()">
+          Retry
+        </button>
       </p>
       <template v-else>
         <MediaGrid>
@@ -142,6 +166,14 @@ const searchHeading = computed(() => {
 
         <p v-if="continuationFailed" class="movies-page__error" role="status">
           Couldn't load more movies.
+          <button
+            type="button"
+            class="movies-page__retry"
+            :disabled="isLoadingMore"
+            @click="loadNext()"
+          >
+            Retry
+          </button>
         </p>
 
         <ProgressiveSentinel

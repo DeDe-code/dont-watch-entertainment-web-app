@@ -15,6 +15,7 @@ interface FetchStub {
   data: Ref<PaginatedMedia | null>
   status: Ref<string>
   error: Ref<unknown>
+  refresh: ReturnType<typeof vi.fn>
 }
 
 // The two page-1 reads are stubbed at the `useFetch` boundary: these tests own
@@ -48,12 +49,14 @@ async function mountHome() {
 
 function stubFetch(
   url: string,
-  value: { data: PaginatedMedia | null; status: string; error?: unknown }
+  value: { data: PaginatedMedia | null; status: string; error?: unknown },
+  refresh: ReturnType<typeof vi.fn> = vi.fn()
 ) {
   fetchByUrl[url] = {
     data: ref(value.data),
     status: ref(value.status),
-    error: ref(value.error ?? null)
+    error: ref(value.error ?? null),
+    refresh
   }
 }
 
@@ -361,5 +364,62 @@ describe('useHomeMedia', () => {
 
     await nextTick()
     expect(apiFetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries only the failed Trending read', async () => {
+    const trendingRefresh = vi.fn()
+    const recommendedRefresh = vi.fn()
+    stubFetch(
+      TRENDING,
+      {
+        data: null,
+        status: 'error',
+        error: new Error('trending unavailable')
+      },
+      trendingRefresh
+    )
+    stubFetch(
+      RECOMMENDED,
+      { data: page(1, [item('TV', 2)]), status: 'success' },
+      recommendedRefresh
+    )
+
+    const media = await mountHome()
+    await media.retryTrending()
+
+    expect(trendingRefresh).toHaveBeenCalledTimes(1)
+    expect(recommendedRefresh).not.toHaveBeenCalled()
+    // The healthy section is untouched by the other section's retry.
+    expect(identities(media.recommendedItems.value)).toEqual(['TV:2'])
+    expect(media.recommendedStatus.value).toBe('success')
+    expect(media.recommendedError.value).toBeNull()
+  })
+
+  it('retries only the failed Recommended read', async () => {
+    const trendingRefresh = vi.fn()
+    const recommendedRefresh = vi.fn()
+    stubFetch(
+      TRENDING,
+      { data: page(1, [item('MOVIE', 1)]), status: 'success' },
+      trendingRefresh
+    )
+    stubFetch(
+      RECOMMENDED,
+      {
+        data: null,
+        status: 'error',
+        error: new Error('recommended unavailable')
+      },
+      recommendedRefresh
+    )
+
+    const media = await mountHome()
+    await media.retryRecommended()
+
+    expect(recommendedRefresh).toHaveBeenCalledTimes(1)
+    expect(trendingRefresh).not.toHaveBeenCalled()
+    expect(identities(media.trendingItems.value)).toEqual(['MOVIE:1'])
+    expect(media.trendingStatus.value).toBe('success')
+    expect(media.trendingError.value).toBeNull()
   })
 })

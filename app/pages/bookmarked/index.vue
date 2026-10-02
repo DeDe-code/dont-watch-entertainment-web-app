@@ -20,6 +20,10 @@
   group (and the reverse). Empty and failed are never conflated: only a success
   response with no items and no reported total counts as empty, and the
   whole-page empty state requires both normal groups to satisfy that at once.
+
+  Every failure — normal or search — offers its own Retry: a failed page 1
+  re-runs only that group's page-1 read, a failed continuation only that
+  group's next page, so retrying one group never resets or retries the other.
 -->
 <script setup lang="ts">
 import type { MediaItem } from '~/../shared/contracts'
@@ -33,6 +37,7 @@ const {
   movieStatus,
   movieError,
   movieTotal,
+  retryMovies,
   movieHasMore,
   movieIsLoadingMore,
   loadNextMovies,
@@ -41,6 +46,7 @@ const {
   tvStatus,
   tvError,
   tvTotal,
+  retryTv,
   tvHasMore,
   tvIsLoadingMore,
   loadNextTv
@@ -57,6 +63,7 @@ const {
   movieStatus: searchMovieStatus,
   movieError: searchMovieError,
   movieTotal: searchMovieTotal,
+  retryMovies: retrySearchMovies,
   movieHasMore: searchMovieHasMore,
   movieIsLoadingMore: searchMovieIsLoadingMore,
   loadNextMovies: loadNextSearchMovies,
@@ -65,6 +72,7 @@ const {
   tvStatus: searchTvStatus,
   tvError: searchTvError,
   tvTotal: searchTvTotal,
+  retryTv: retrySearchTv,
   tvHasMore: searchTvHasMore,
   tvIsLoadingMore: searchTvIsLoadingMore,
   loadNextTv: loadNextSearchTv,
@@ -247,6 +255,13 @@ const showSearchTvSection = computed(
           >
             Bookmarked movie search is unavailable right now. Please try again
             later.
+            <button
+              type="button"
+              class="bookmarked-section__retry"
+              @click="retrySearchMovies()"
+            >
+              Retry
+            </button>
           </p>
           <template v-else>
             <MediaGrid>
@@ -269,6 +284,14 @@ const showSearchTvSection = computed(
               role="status"
             >
               Couldn't load more bookmarked movie results.
+              <button
+                type="button"
+                class="bookmarked-section__retry"
+                :disabled="searchMovieIsLoadingMore"
+                @click="loadNextSearchMovies()"
+              >
+                Retry
+              </button>
             </p>
 
             <ProgressiveSentinel
@@ -302,6 +325,13 @@ const showSearchTvSection = computed(
           >
             Bookmarked TV search is unavailable right now. Please try again
             later.
+            <button
+              type="button"
+              class="bookmarked-section__retry"
+              @click="retrySearchTv()"
+            >
+              Retry
+            </button>
           </p>
           <template v-else>
             <MediaGrid>
@@ -324,6 +354,14 @@ const showSearchTvSection = computed(
               role="status"
             >
               Couldn't load more bookmarked TV results.
+              <button
+                type="button"
+                class="bookmarked-section__retry"
+                :disabled="searchTvIsLoadingMore"
+                @click="loadNextSearchTv()"
+              >
+                Retry
+              </button>
             </p>
 
             <ProgressiveSentinel
@@ -364,6 +402,13 @@ const showSearchTvSection = computed(
             >
               Bookmarked movies are unavailable right now. Please try again
               later.
+              <button
+                type="button"
+                class="bookmarked-section__retry"
+                @click="retryMovies()"
+              >
+                Retry
+              </button>
             </p>
             <template v-else>
               <MediaGrid>
@@ -386,6 +431,14 @@ const showSearchTvSection = computed(
                 role="status"
               >
                 Couldn't load more bookmarked movies.
+                <button
+                  type="button"
+                  class="bookmarked-section__retry"
+                  :disabled="movieIsLoadingMore"
+                  @click="loadNextMovies()"
+                >
+                  Retry
+                </button>
               </p>
 
               <ProgressiveSentinel
@@ -416,6 +469,13 @@ const showSearchTvSection = computed(
             >
               Bookmarked TV series are unavailable right now. Please try again
               later.
+              <button
+                type="button"
+                class="bookmarked-section__retry"
+                @click="retryTv()"
+              >
+                Retry
+              </button>
             </p>
             <template v-else>
               <MediaGrid>
@@ -438,6 +498,14 @@ const showSearchTvSection = computed(
                 role="status"
               >
                 Couldn't load more bookmarked TV series.
+                <button
+                  type="button"
+                  class="bookmarked-section__retry"
+                  :disabled="tvIsLoadingMore"
+                  @click="loadNextTv()"
+                >
+                  Retry
+                </button>
               </p>
 
               <ProgressiveSentinel
