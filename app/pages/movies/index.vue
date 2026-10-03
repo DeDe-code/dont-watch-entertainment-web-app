@@ -23,6 +23,17 @@ search page 1. Neither failure ever falls back to the other mode, and there is
 no page-wide spinner or error state.
 -->
 <script setup lang="ts">
+// Movies is a public page, so the Open Graph tags mirror the route metadata so a
+// shared link previews with the same title and description.
+const title = 'Movies'
+const description = `Browse movies and discover what's trending on Don't Watch Entertainment.`
+useSeoMeta({
+  title,
+  description,
+  ogTitle: title,
+  ogDescription: description
+})
+
 const {
   items,
   status,
