@@ -20,6 +20,17 @@
 <script setup lang="ts">
 import type { MediaItem } from '~/../shared/contracts'
 
+// Home is a public page, so the Open Graph tags mirror the route metadata so a
+// shared link previews with the same title and description.
+const title = 'Home'
+const description = `Browse trending and recommended movies and TV series on Don't Watch Entertainment.`
+useSeoMeta({
+  title,
+  description,
+  ogTitle: title,
+  ogDescription: description
+})
+
 const {
   trendingItems,
   trendingStatus,

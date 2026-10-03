@@ -32,6 +32,13 @@ definePageMeta({
   middleware: 'auth'
 })
 
+// Bookmarked is authenticated and private, so it declares a title and
+// description for the browser tab but no Open Graph tags for link previews.
+useSeoMeta({
+  title: 'Bookmarked',
+  description: 'Your bookmarked movies and TV series in one place.'
+})
+
 const {
   movieItems,
   movieStatus,

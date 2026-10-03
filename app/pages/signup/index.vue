@@ -3,6 +3,18 @@ import { signupInputSchema } from '~/../shared/contracts'
 import { getAuthPageRedirect } from '~/utils/auth-redirect'
 
 definePageMeta({ layout: 'login' })
+
+// Sign Up is publicly reachable, so the Open Graph tags mirror the route
+// metadata so a shared link previews with the same title and description.
+const title = 'Sign Up'
+const description = `Create a Don't Watch Entertainment account to bookmark movies and TV series.`
+useSeoMeta({
+  title,
+  description,
+  ogTitle: title,
+  ogDescription: description
+})
+
 const route = useRoute()
 const router = useRouter()
 const { status, bootstrap, signup } = useAuth()

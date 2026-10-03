@@ -5,6 +5,18 @@ import { getAuthPageRedirect } from '~/utils/auth-redirect'
 definePageMeta({
   layout: 'login'
 })
+
+// Login is publicly reachable, so the Open Graph tags mirror the route metadata
+// so a shared link previews with the same title and description.
+const title = 'Login'
+const description = `Log in to your Don't Watch Entertainment account.`
+useSeoMeta({
+  title,
+  description,
+  ogTitle: title,
+  ogDescription: description
+})
+
 const route = useRoute()
 const router = useRouter()
 const { status, bootstrap, login } = useAuth()

@@ -1,10 +1,20 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
-  modules: ['@nuxt/eslint', '@nuxt/fonts', '@nuxt/ui'],
+  modules: ['@nuxt/eslint', '@nuxt/ui'],
 
   // Enable Nuxt DevTools for an in-browser developer panel during local dev
   devtools: {
     enabled: true
+  },
+
+  // Document-level fallback. Each route page declares its own title and
+  // description with `useSeoMeta()`; this title only covers the routes that
+  // declare none and never render app.vue (for example the error boundary).
+  // How a declared title is composed with the product name lives in app.vue.
+  app: {
+    head: {
+      title: `Don't Watch Entertainment`
+    }
   },
 
   // Register the global CSS file that contains Tailwind layers, design tokens, and custom utilities
@@ -33,15 +43,6 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
-  },
-
-  fonts: {
-    families: [
-      {
-        name: 'Outfit',
-        weights: [300, 400, 500]
-      }
-    ]
   },
 
   // Register custom SVG icon collections so they can be referenced via i-custom-* class names

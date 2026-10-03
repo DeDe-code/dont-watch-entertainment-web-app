@@ -1,9 +1,13 @@
 /* Design System: Colors, Typography, and Spacing */
+@import '@fontsource/outfit/300.css';
+@import '@fontsource/outfit/400.css';
+@import '@fontsource/outfit/500.css';
+
 @import 'tailwindcss';
 @import '@nuxt/ui';
 
 @theme {
-  /* Typography - Outfit is loaded by @nuxt/fonts. */
+  /* Typography - Outfit is loaded from the local @fontsource/outfit package. */
   --font-sans: 'Outfit', sans-serif;
 
   /* Custom Blue Shades */

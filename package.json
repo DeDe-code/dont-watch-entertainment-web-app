@@ -33,9 +33,9 @@
     "ci": "npm run ci:lint && npm run ci:typecheck && npm run ci:test && npm run ci:build"
   },
   "dependencies": {
+    "@fontsource/outfit": "^5.3.0",
     "@iconify-json/lucide": "^1.2.87",
     "@iconify-json/simple-icons": "^1.2.68",
-    "@nuxt/fonts": "^0.12.1",
     "@nuxt/ui": "^4.4.0",
     "@prisma/client": "^5.9.0",
     "bcrypt": "^6.0.0",
