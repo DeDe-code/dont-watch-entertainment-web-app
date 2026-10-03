@@ -70,5 +70,19 @@ jobs:
           NODE_ENV: test
           TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/app_test
 
+      # Chromium is the required release gate; Firefox and WebKit are covered by
+      # manual cross-browser validation, so no browser matrix is added here.
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E tests
+        run: npm run test:e2e -- --project=chromium
+        env:
+          # Point the Playwright app server and the authenticated specs at the
+          # same isolated database the migrations above targeted. TMDB is not
+          # reached: the Playwright config preloads a server-side fetch mock and
+          # supplies a dummy provider token.
+          TEST_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/app_test
+
       - name: Build
         run: npm run build

@@ -2,6 +2,12 @@
 
 Nuxt 4 full-stack entertainment application. The server uses Nitro API routes, PostgreSQL, Prisma, opaque database-backed sessions, and TMDB as the canonical media provider.
 
+## Project origin
+
+This project began as Frontend Mentor's [Entertainment web app challenge](https://www.frontendmentor.io/challenges/entertainment-web-app-J-UhgAW1X). The challenge supplied the product concept, the UI/design direction, the responsive layout and navigation/search/bookmarking interaction requirements, and a small starter media dataset. Figma remains the visual/design source of truth for that challenge UI.
+
+This repository intentionally extends the challenge into a full-stack application. TMDB replaces the starter `data.json` as the canonical media source; PostgreSQL stores application-owned users, opaque sessions, and bookmarks; and authentication, the Nitro/Prisma backend, persisted bookmark behavior, Playwright browser tests, accessibility validation, and CI release validation are all repository additions rather than challenge-provided infrastructure.
+
 ## Stack and architecture
 
 - Nuxt 4, Vue 3, TypeScript, Nuxt UI, and Tailwind CSS
@@ -28,13 +34,13 @@ TMDB responses are normalized by the provider adapter. A shared in-process provi
 
 ## Environment
 
-Copy `.env.example` to `.env` and replace placeholders. The application reads `NUXT_*` values through Nuxt runtime configuration. Prisma CLI reads `DATABASE_URL` directly from the environment. `TEST_DATABASE_URL` is used only by the integration-test setup and must point to an isolated database whose host or database name contains `test`.
+Copy `.env.example` to `.env` and replace placeholders. The application reads `NUXT_*` values through Nuxt runtime configuration. Prisma CLI reads `DATABASE_URL` directly from the environment. `TEST_DATABASE_URL` is shared by the integration-test setup and the authenticated End-to-End (Playwright) tests; it must point to an isolated, disposable PostgreSQL database whose name contains `test`.
 
 | Variable                       | Required for                                                          | Secret? | Purpose                                                                                 |
 | ------------------------------ | --------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
 | `DATABASE_URL`                 | Prisma CLI migrations/generation workflows that connect to PostgreSQL | Yes     | PostgreSQL URL used by Prisma CLI; never commit it.                                     |
 | `NUXT_DATABASE_URL`            | Nuxt server runtime                                                   | Yes     | PostgreSQL URL validated by the running application.                                    |
-| `TEST_DATABASE_URL`            | Integration tests                                                     | Yes     | Disposable, isolated PostgreSQL URL for test setup and cleanup.                         |
+| `TEST_DATABASE_URL`            | Integration and authenticated E2E tests                               | Yes     | Disposable PostgreSQL URL for integration and authenticated E2E test setup.             |
 | `NUXT_TMDB_ACCESS_TOKEN`       | Nuxt server runtime                                                   | Yes     | Server-side TMDB API Read Access Token. Never expose it to the browser.                 |
 | `NUXT_TMDB_LANGUAGE`           | Nuxt runtime                                                          | No      | TMDB language/locale, default `en-US`.                                                  |
 | `NUXT_TMDB_REGION`             | Nuxt runtime                                                          | No      | ISO 3166-1 alpha-2 region used for TMDB results and ratings, default `US`.              |
@@ -91,7 +97,9 @@ Media list routes return normalized media with pagination metadata. Search addit
 
 ## Testing and validation
 
-The integration suite requires an isolated PostgreSQL database configured by `TEST_DATABASE_URL`. It applies migrations and performs destructive cleanup only after checking that the connection is test-specific. Tests mock TMDB traffic and must not call the live provider.
+The integration suite and the authenticated End-to-End (Playwright) tests both require an isolated PostgreSQL database configured by `TEST_DATABASE_URL`. Destructive cleanup is guarded so it only targets a test-specific database. Authenticated E2E tests expect the test database schema to already be migrated: CI deploys migrations before the browser E2E gate, and local developers should apply the committed migrations to their disposable test database before running authenticated E2E tests when necessary. All tests mock TMDB traffic and must not call the live provider.
+
+### Unit, integration, and build checks
 
 ```bash
 npm run db:generate
@@ -103,7 +111,32 @@ npm test
 npm run build
 ```
 
-The complete repository validation is also available as `npm run ci`; it runs lint/format, typecheck, tests, and build. CI uses PostgreSQL 16, Node 22, generates Prisma Client, deploys migrations, runs tests, and builds the application.
+The complete repository validation is also available as `npm run ci`; it runs lint/format, typecheck, tests, and build. It does not run Playwright. The GitHub Actions workflow runs the browser End-to-End gate as a separate step.
+
+### Browser (Playwright) tests
+
+Playwright drives the real Nuxt application through a real browser. Install a browser when it is not already present:
+
+```bash
+npx playwright install chromium
+```
+
+Firefox and WebKit are supported for local cross-browser validation only:
+
+```bash
+npx playwright install chromium firefox webkit
+```
+
+Anonymous browser tests run without a PostgreSQL test database. Authenticated browser tests require `TEST_DATABASE_URL` pointing at a disposable, test-specific PostgreSQL database (the same guard used by the integration suite requires the database name to contain `test`). For example:
+
+```bash
+TEST_DATABASE_URL="postgresql://postgres:postgres@127.0.0.1:5433/app_test" \
+  npm run test:e2e -- --project=chromium
+```
+
+The URL above is an example local test database only; it is not a credential and must never be reused for a real or production database. The browser-test environment uses deterministic TMDB mocks preloaded into the Nuxt server, so the suite never depends on the live TMDB service.
+
+Chromium is the required Continuous Integration release gate. Firefox and WebKit are available for local cross-browser validation but are not required CI browser gates.
 
 ## Production checks and deployment
 
@@ -119,6 +152,7 @@ npm run format:check    # Check Prettier formatting
 npm run lint            # Run ESLint
 npm run typecheck       # Run Nuxt TypeScript checks
 npm test                # Run all Vitest projects
+npm run test:e2e        # Run Playwright browser tests
 npm run build           # Build for production
 npm run db:studio       # Open Prisma Studio
 ```

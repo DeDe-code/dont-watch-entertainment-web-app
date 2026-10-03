@@ -13,6 +13,11 @@ export default defineNuxtConfig({
   // How a declared title is composed with the product name lives in app.vue.
   app: {
     head: {
+      // The product UI is English-only; declaring the document language is
+      // required for assistive technology and a conforming root <html> element.
+      htmlAttrs: {
+        lang: 'en'
+      },
       title: `Don't Watch Entertainment`
     }
   },
