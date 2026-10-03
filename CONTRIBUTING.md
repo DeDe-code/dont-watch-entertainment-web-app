@@ -109,21 +109,29 @@ refactor(components): simplify MediaCard logic
 Ensure all checks pass:
 
 ```bash
+# Check formatting
+npm run format:check
+
 # Lint your code
 npm run lint
-
-# Fix linting issues
-npm run lint:fix
-
-# Format code
-npm run format
 
 # Type check
 npm run typecheck
 
+# Run tests
+npm test
+
 # Build
 npm run build
 ```
+
+When your change affects frontend/browser behavior, also run the Chromium End-to-End browser tests. Install the browser once if needed with `npx playwright install chromium`, then:
+
+```bash
+npm run test:e2e -- --project=chromium
+```
+
+Authenticated browser tests require `TEST_DATABASE_URL` pointing at an isolated, disposable PostgreSQL test database whose name contains `test`. Browser tests mock TMDB deterministically and must not depend on the live provider. Firefox and WebKit are available for local cross-browser validation when relevant (`npx playwright install chromium firefox webkit`), but Chromium is the required CI browser gate.
 
 ## Code Style Guidelines
 
@@ -167,17 +175,25 @@ public/         # Public files
 
 ## Testing
 
-When adding new features, consider adding tests:
+Add focused tests for new behavior and keep the existing suites green. The integration suite and authenticated browser tests need an isolated `TEST_DATABASE_URL` (see the README); all tests mock TMDB and must not call the live provider.
 
 ```bash
-# Run tests (when implemented)
-npm run test
+# Run all Vitest projects
+npm test
+
+# Run a single project
+npm run test:unit
+npm run test:integration
+npm run test:frontend
 
 # Run tests in watch mode
 npm run test:watch
 
 # Run tests with coverage
 npm run test:coverage
+
+# Run Chromium browser tests
+npm run test:e2e -- --project=chromium
 ```
 
 ## Database Changes

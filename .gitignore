@@ -35,6 +35,12 @@ prisma/production.db
 # Testing
 coverage/
 
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
 # VSCode settings
 .vscode/
 
