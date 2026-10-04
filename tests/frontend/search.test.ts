@@ -11,9 +11,24 @@ import {
   type MediaSearchScope
 } from '../../app/composables/useMediaSearch'
 
-const { requestFetch } = vi.hoisted(() => ({ requestFetch: vi.fn() }))
+const { requestFetch, apiFetch } = vi.hoisted(() => ({
+  requestFetch: vi.fn(),
+  apiFetch: vi.fn()
+}))
 
 mockNuxtImport('useRequestFetch', () => () => requestFetch)
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so the continuation
+// read is intercepted at the auto-import boundary. Anything else Nuxt fetches
+// during a mount keeps the real implementation.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (request: string, options?: unknown) =>
+      request === '/api/media/search'
+        ? apiFetch(request, options)
+        : original(request as never, options as never)
+)
 
 /**
  * Deterministic stand-in for the browser observer: tests decide when the
@@ -82,9 +97,6 @@ function page(
   return { data, meta: { page: pageNumber, totalPages, totalResults } }
 }
 
-let apiFetch: ReturnType<typeof vi.fn>
-let originalFetch: typeof globalThis.$fetch
-
 beforeEach(async () => {
   await clearNuxtState()
   // useAsyncData keeps its page-1 response in the payload cache; clear it so
@@ -92,16 +104,10 @@ beforeEach(async () => {
   clearNuxtData()
   FakeIntersectionObserver.instances = []
   requestFetch.mockReset()
+  apiFetch.mockReset()
   vi.stubGlobal(
     'IntersectionObserver',
     FakeIntersectionObserver as unknown as typeof IntersectionObserver
-  )
-  originalFetch = globalThis.$fetch
-  apiFetch = vi.fn()
-  vi.stubGlobal('$fetch', (request: string, options?: unknown) =>
-    request === '/api/media/search'
-      ? apiFetch(request, options)
-      : originalFetch(request as never, options as never)
   )
 })
 

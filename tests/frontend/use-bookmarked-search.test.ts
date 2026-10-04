@@ -1,7 +1,7 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { clearNuxtData, clearNuxtState } from '#app'
 import { defineComponent, h, nextTick } from 'vue'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type {
   MediaItem,
   MediaType,
@@ -221,7 +221,29 @@ type TestFetch = (request: string, options?: unknown) => unknown
 let movieFetch = vi.fn<TestFetch>()
 let tvFetch = vi.fn<TestFetch>()
 let deleteFetch = vi.fn<TestFetch>()
-let originalFetch: TestFetch
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so the bookmark
+// requests are intercepted at the auto-import boundary. Anything else Nuxt
+// fetches during a mount keeps the real implementation. Continuations are
+// dispatched by media type so a group's request can never be answered by the
+// other's, and removals are routed separately so a test can hold one open or
+// make it fail.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (
+      request: string,
+      options?: { query?: { mediaType?: string }; method?: string }
+    ) => {
+      if (options?.method === 'DELETE') return deleteFetch(request, options)
+      if (request !== BOOKMARKS) {
+        return original(request as never, options as never)
+      }
+      return options?.query?.mediaType === 'TV'
+        ? tvFetch(request, options)
+        : movieFetch(request, options)
+    }
+)
 
 beforeEach(async () => {
   await clearNuxtState()
@@ -253,28 +275,7 @@ beforeEach(async () => {
   movieFetch = vi.fn<TestFetch>()
   tvFetch = vi.fn<TestFetch>()
   deleteFetch = vi.fn<TestFetch>()
-  originalFetch = Reflect.get(globalThis, '$fetch') as TestFetch
-  // Only the bookmark requests are intercepted; anything else Nuxt fetches
-  // during a mount keeps its real implementation. Continuations are dispatched
-  // by media type so a group's request can never be answered by the other's,
-  // and removals are routed separately so a test can hold one open or make it
-  // fail.
-  vi.stubGlobal(
-    '$fetch',
-    (request: string, options?: { query?: unknown; method?: string }) => {
-      if (options?.method === 'DELETE') return deleteFetch(request, options)
-      if (request !== BOOKMARKS) {
-        return originalFetch(request as never, options as never)
-      }
-      return (options?.query as { mediaType?: string } | undefined)
-        ?.mediaType === 'TV'
-        ? tvFetch(request, options)
-        : movieFetch(request, options)
-    }
-  )
 })
-
-afterEach(() => vi.unstubAllGlobals())
 
 describe('useBookmarkedSearch — query and URL', () => {
   it('seeds the field and both groups from a direct-link query', async () => {
