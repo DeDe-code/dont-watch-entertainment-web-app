@@ -1,6 +1,6 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { defineComponent, h, nextTick, ref, type Ref } from 'vue'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem, PaginatedMedia } from '../../shared/contracts'
 import { useTvMedia } from '../../app/composables/useTvMedia'
 
@@ -15,16 +15,31 @@ interface FetchStub {
 
 // The page-1 read is stubbed at the `useFetch` boundary: these tests own the
 // TV Series media lifecycle, not Nuxt's fetch/SSR mechanics.
-const { fetchByUrl, requestedUrls, refreshTvSeries } = vi.hoisted(() => ({
-  fetchByUrl: {} as Record<string, FetchStub>,
-  requestedUrls: [] as string[],
-  refreshTvSeries: vi.fn()
-}))
+const { fetchByUrl, requestedUrls, refreshTvSeries, apiFetch } = vi.hoisted(
+  () => ({
+    fetchByUrl: {} as Record<string, FetchStub>,
+    requestedUrls: [] as string[],
+    refreshTvSeries: vi.fn(),
+    apiFetch: vi.fn()
+  })
+)
 
 mockNuxtImport('useFetch', () => (url: string) => {
   requestedUrls.push(url)
   return fetchByUrl[url]
 })
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so the continuation
+// request is intercepted at the auto-import boundary. Anything else Nuxt
+// fetches during a mount keeps the real implementation.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (request: string, options?: unknown) =>
+      request === TV
+        ? apiFetch(request, options)
+        : original(request as never, options as never)
+)
 
 // The composable under test is captured directly from setup so the tests read
 // raw refs instead of the public-instance proxy.
@@ -84,25 +99,12 @@ function identities(items: MediaItem[]): number[] {
   return items.map((entry) => entry.externalId)
 }
 
-let apiFetch: ReturnType<typeof vi.fn>
-
 beforeEach(() => {
   requestedUrls.length = 0
   refreshTvSeries.mockReset()
   stubFetch(TV, { data: undefined, status: 'pending' })
-
-  apiFetch = vi.fn()
-  const originalFetch = globalThis.$fetch
-  // Only the continuation request is intercepted; anything else Nuxt fetches
-  // during a mount keeps its real implementation.
-  vi.stubGlobal('$fetch', (request: string, options?: unknown) =>
-    request === TV
-      ? apiFetch(request, options)
-      : originalFetch(request as never, options as never)
-  )
+  apiFetch.mockReset()
 })
-
-afterEach(() => vi.unstubAllGlobals())
 
 describe('useTvMedia', () => {
   it('reads page 1 from the TV endpoint', async () => {

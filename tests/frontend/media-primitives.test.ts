@@ -1,7 +1,7 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { clearNuxtState } from '#app'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem } from '../../shared/contracts'
 import BookmarkButton from '../../app/components/BookmarkButton.vue'
 import MediaCard from '../../app/components/MediaCard.vue'
@@ -15,12 +15,27 @@ import TrendingRail from '../../app/components/TrendingRail.vue'
 // Cards integrate the real `useBookmarks`, which reads auth status. Auth is
 // mocked at the composable boundary so these tests exercise bookmark wiring
 // rather than /me bootstrapping (covered by the use-auth tests).
-const { bootstrapMock } = vi.hoisted(() => ({ bootstrapMock: vi.fn() }))
+const { bootstrapMock, fetchMock } = vi.hoisted(() => ({
+  bootstrapMock: vi.fn(),
+  fetchMock: vi.fn()
+}))
 
 mockNuxtImport('useAuth', () => () => ({
   status: { value: 'authenticated' },
   bootstrap: bootstrapMock
 }))
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so bookmark requests
+// are intercepted at the auto-import boundary. Anything else Nuxt fetches
+// during a mount keeps the real implementation.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (request: string, options?: unknown) =>
+      request.startsWith('/api/bookmarks')
+        ? fetchMock(request, options)
+        : original(request as never, options as never)
+)
 
 function makeItem(overrides: Partial<MediaItem> = {}): MediaItem {
   return {
@@ -285,18 +300,12 @@ describe('MediaCardSkeleton', () => {
 })
 
 describe('card bookmark integration', () => {
-  let fetchMock: ReturnType<typeof vi.fn>
-
   beforeEach(async () => {
     // The bookmark map is shared app state that outlives a mounted card, so
     // each case starts empty to keep seeding and sync assertions unambiguous.
     await clearNuxtState()
-    fetchMock = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('$fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue(undefined)
   })
 
   it('seeds and renders an initially bookmarked item as bookmarked', async () => {

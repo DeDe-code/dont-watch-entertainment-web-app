@@ -124,9 +124,34 @@ function identities(items: MediaItem[]): string[] {
   return items.map((entry) => `${entry.mediaType}:${entry.externalId}`)
 }
 
-let movieFetch: ReturnType<typeof vi.fn>
-let tvFetch: ReturnType<typeof vi.fn>
-let deleteFetch: ReturnType<typeof vi.fn>
+const { movieFetch, tvFetch, deleteFetch } = vi.hoisted(() => ({
+  movieFetch: vi.fn(),
+  tvFetch: vi.fn(),
+  deleteFetch: vi.fn()
+}))
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so the bookmark
+// requests are intercepted at the auto-import boundary. Anything else Nuxt
+// fetches during a mount keeps the real implementation. Continuations are
+// dispatched by media type so a group's request can never be answered by the
+// other's, and bookmark removals are routed separately so a test can hold one
+// open or make it fail.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (
+      request: string,
+      options?: { query?: { mediaType?: string }; method?: string }
+    ) => {
+      if (options?.method === 'DELETE') return deleteFetch(request, options)
+      if (request !== BOOKMARKS) {
+        return original(request as never, options as never)
+      }
+      return options?.query?.mediaType === 'TV'
+        ? tvFetch(request, options)
+        : movieFetch(request, options)
+    }
+)
 
 beforeEach(async () => {
   // The bookmark map is app-wide state: without clearing it a removal from one
@@ -137,37 +162,17 @@ beforeEach(async () => {
   stubPageOne('MOVIE', { data: undefined, status: 'pending' })
   stubPageOne('TV', { data: undefined, status: 'pending' })
 
-  movieFetch = vi.fn()
-  tvFetch = vi.fn()
-  deleteFetch = vi.fn()
-  const originalFetch = globalThis.$fetch
-  // Only the bookmark requests the composable makes are intercepted; anything
-  // else Nuxt fetches during a mount keeps its real implementation.
-  // Continuations are dispatched by media type so a group's request can never
-  // be answered by the other's, and bookmark removals are routed separately so
-  // a test can hold one open or make it fail.
-  vi.stubGlobal(
-    '$fetch',
-    (request: string, options?: { query?: unknown; method?: string }) => {
-      if (options?.method === 'DELETE') return deleteFetch(request, options)
-      if (request !== BOOKMARKS) {
-        return originalFetch(request as never, options as never)
-      }
-      return (options?.query as { mediaType?: string } | undefined)
-        ?.mediaType === 'TV'
-        ? tvFetch(request, options)
-        : movieFetch(request, options)
-    }
-  )
+  movieFetch.mockReset()
+  tvFetch.mockReset()
+  deleteFetch.mockReset()
 })
 
 afterEach(async () => {
-  // Unmount first, then flush, so any pending Nuxt work settles while the
-  // $fetch stub is still installed; only then are the globals restored.
   wrapper?.unmount()
   wrapper = undefined
+  // Flush any pending Nuxt work against the mocked fetch so it cannot leak
+  // into the next test's reset mocks.
   await nextTick()
-  vi.unstubAllGlobals()
 })
 
 describe('useBookmarkedMedia', () => {

@@ -1,16 +1,29 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { clearNuxtState, useState } from '#app'
 import { defineComponent, h } from 'vue'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { useBookmarks } from '../../app/composables/useBookmarks'
 
 // Auth is mocked at the composable boundary: these tests exercise bookmark
 // mutation behavior, not /me bootstrapping (covered by the use-auth tests).
-const { bootstrapMock, navigateToMock, auth } = vi.hoisted(() => ({
+const { fetchMock, bootstrapMock, navigateToMock, auth } = vi.hoisted(() => ({
+  fetchMock: vi.fn(),
   bootstrapMock: vi.fn(),
   navigateToMock: vi.fn((to: unknown) => to),
   auth: { status: 'authenticated' as string }
 }))
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so the interception
+// lives at the auto-import boundary. Only bookmark requests are intercepted;
+// anything else Nuxt fetches during a mount keeps the real implementation.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (request: string, options?: unknown) =>
+      request.startsWith('/api/bookmarks')
+        ? fetchMock(request, options)
+        : original(request as never, options as never)
+)
 
 mockNuxtImport('useAuth', () => () => ({
   status: {
@@ -154,20 +167,14 @@ function deferred() {
 }
 
 describe('useBookmarks mutations', () => {
-  let fetchMock: ReturnType<typeof vi.fn>
-
   beforeEach(async () => {
     await clearNuxtState()
     bootstrapMock.mockReset()
     bootstrapMock.mockResolvedValue(undefined)
     navigateToMock.mockClear()
     auth.status = 'authenticated'
-    fetchMock = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('$fetch', fetchMock)
-  })
-
-  afterEach(() => {
-    vi.unstubAllGlobals()
+    fetchMock.mockReset()
+    fetchMock.mockResolvedValue(undefined)
   })
 
   function mountBookmarks(route = '/movies') {

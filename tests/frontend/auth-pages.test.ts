@@ -1,14 +1,29 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { clearNuxtState } from '#app'
 import { flushPromises } from '@vue/test-utils'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { SafeUser } from '../../shared/contracts'
 import LoginPage from '../../app/pages/login/index.vue'
 import SignupPage from '../../app/pages/signup/index.vue'
 
-const { requestFetch } = vi.hoisted(() => ({ requestFetch: vi.fn() }))
+const { requestFetch, apiFetch } = vi.hoisted(() => ({
+  requestFetch: vi.fn(),
+  apiFetch: vi.fn()
+}))
 
 mockNuxtImport('useRequestFetch', () => () => requestFetch)
+
+// `$fetch` is an auto-import in Nuxt 4.5, not a global, so auth API calls are
+// intercepted at the auto-import boundary. Anything else Nuxt fetches during a
+// mount keeps the real implementation.
+mockNuxtImport(
+  '$fetch',
+  (original: typeof globalThis.$fetch) =>
+    (request: string, options?: unknown) =>
+      request.startsWith('/api/auth/')
+        ? apiFetch(request, options)
+        : original(request as never, options as never)
+)
 
 const user: SafeUser = {
   id: 'user-1',
@@ -17,18 +32,9 @@ const user: SafeUser = {
   updatedAt: new Date('2026-01-01T00:00:00Z')
 }
 const validPassword = 'Good-Password1!'
-let apiFetch: ReturnType<typeof vi.fn>
 
 function apiFetchStub() {
-  const nuxtFetch = globalThis.$fetch
-  apiFetch = vi.fn().mockRejectedValue(new Error('Unexpected auth API call'))
-  vi.stubGlobal(
-    '$fetch',
-    (request: string, options?: Record<string, unknown>) => {
-      if (request.startsWith('/api/auth/')) return apiFetch(request, options)
-      return nuxtFetch(request, options)
-    }
-  )
+  apiFetch.mockReset().mockRejectedValue(new Error('Unexpected auth API call'))
 }
 
 async function mountAnonymousPage(
@@ -65,8 +71,6 @@ describe('Login page', () => {
     requestFetch.mockReset()
     apiFetchStub()
   })
-
-  afterEach(() => vi.unstubAllGlobals())
 
   it('prevents submission when input is invalid', async () => {
     const wrapper = await mountAnonymousPage(LoginPage, '/login')
@@ -157,8 +161,6 @@ describe('Signup page', () => {
     requestFetch.mockReset()
     apiFetchStub()
   })
-
-  afterEach(() => vi.unstubAllGlobals())
 
   it('prevents submission when passwords do not match', async () => {
     const wrapper = await mountAnonymousPage(SignupPage, '/signup')
