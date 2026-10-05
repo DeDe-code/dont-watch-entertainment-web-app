@@ -9,6 +9,7 @@ const errorStatuses: Record<ApplicationErrorCode, number> = {
   FORBIDDEN: 403,
   NOT_FOUND: 404,
   CONFLICT: 409,
+  RATE_LIMITED: 429,
   PROVIDER_UNAVAILABLE: 502,
   DATABASE_ERROR: 500,
   INTERNAL_ERROR: 500
@@ -20,6 +21,7 @@ const publicMessages: Record<ApplicationErrorCode, string> = {
   FORBIDDEN: 'You do not have permission to perform this action',
   NOT_FOUND: 'The requested resource was not found',
   CONFLICT: 'The request conflicts with existing data',
+  RATE_LIMITED: 'Too many requests. Please try again later.',
   PROVIDER_UNAVAILABLE: 'The media provider is unavailable',
   DATABASE_ERROR: 'A database error occurred',
   INTERNAL_ERROR: 'An unexpected error occurred'
@@ -54,6 +56,10 @@ export class ApplicationError extends Error {
 
   static conflict(): ApplicationError {
     return new ApplicationError('CONFLICT')
+  }
+
+  static rateLimited(): ApplicationError {
+    return new ApplicationError('RATE_LIMITED')
   }
 
   static providerUnavailable(): ApplicationError {

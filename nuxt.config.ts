@@ -32,7 +32,11 @@ export default defineNuxtConfig({
     tmdbRegion: 'US',
     tmdbRequestTimeoutMs: '5000',
     tmdbCacheTtlSeconds: '300',
-    sessionTtlSeconds: '604800'
+    sessionTtlSeconds: '604800',
+    authLoginRateLimitMax: '10',
+    authLoginRateLimitWindowSeconds: '900',
+    authSignupRateLimitMax: '5',
+    authSignupRateLimitWindowSeconds: '3600'
   },
 
   // Minimum Nuxt compatibility date; keeps future breaking changes opt-in

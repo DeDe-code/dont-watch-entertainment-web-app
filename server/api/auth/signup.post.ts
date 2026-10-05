@@ -5,6 +5,7 @@ import {
   resolveSessionTtlSeconds,
   setSessionCookie
 } from '../../utils/auth'
+import { enforceAuthRateLimit } from '../../utils/auth-rate-limit-guard'
 import { prisma } from '../../utils/prisma'
 import { signupInputSchema } from '../../../shared/contracts'
 import { validateBody } from '../../utils/validation'
@@ -14,6 +15,7 @@ import type { SafeUser } from '../../../shared/contracts'
 export default defineEventHandler((event) =>
   withRouteErrors(event, async () => {
     const input = validateBody(signupInputSchema, await readBody(event))
+    await enforceAuthRateLimit(event, 'auth:signup')
     const passwordHash = await hashPassword(input.password)
     const sessionTtlSeconds = resolveSessionTtlSeconds(
       useRuntimeConfig(event).sessionTtlSeconds

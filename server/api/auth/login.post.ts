@@ -5,6 +5,7 @@ import {
   setSessionCookie,
   verifyPassword
 } from '../../utils/auth'
+import { enforceAuthRateLimit } from '../../utils/auth-rate-limit-guard'
 import { ApplicationError } from '../../utils/errors'
 import { prisma } from '../../utils/prisma'
 import { loginInputSchema } from '../../../shared/contracts'
@@ -14,6 +15,7 @@ import { withRouteErrors } from '../../utils/route-errors'
 export default defineEventHandler((event) =>
   withRouteErrors(event, async () => {
     const input = validateBody(loginInputSchema, await readBody(event))
+    await enforceAuthRateLimit(event, 'auth:login')
     const user = await prisma.user.findUnique({
       where: { email: input.email },
       select: {

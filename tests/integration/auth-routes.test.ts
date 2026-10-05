@@ -24,24 +24,30 @@ interface MockEventOptions {
   method?: string
   body?: unknown
   cookie?: string
+  ip?: string
 }
 
 function createEvent({
   method = 'GET',
   body,
-  cookie
+  cookie,
+  ip = '127.0.0.1'
 }: MockEventOptions = {}): H3Event {
   const responseHeaders: MockResHeaders = new Map()
 
   return {
     method,
+    context: {},
     node: {
       req: {
         method,
         headers: {
           ...(cookie ? { cookie } : {}),
           ...(body !== undefined ? { 'content-type': 'application/json' } : {})
-        }
+        },
+        // Backs h3's getRequestIP, which the rate limiter uses to identify
+        // the caller.
+        socket: { remoteAddress: ip }
       },
       res: {
         statusCode: 200,
@@ -101,7 +107,15 @@ function signupBody(input: { email: string; password: string }) {
   }
 }
 
-const stubRuntimeConfig = { sessionTtlSeconds: 604800 }
+const baseRuntimeConfig = {
+  sessionTtlSeconds: 604800,
+  authLoginRateLimitMax: 10,
+  authLoginRateLimitWindowSeconds: 900,
+  authSignupRateLimitMax: 5,
+  authSignupRateLimitWindowSeconds: 3600
+}
+
+let runtimeConfig = { ...baseRuntimeConfig }
 
 describe('authentication routes (TASK-BE-006)', () => {
   let dbClient: Client
@@ -114,12 +128,13 @@ describe('authentication routes (TASK-BE-006)', () => {
     // exists inside a running Nitro server; stub it for direct handler calls.
     ;(
       globalThis as unknown as {
-        useRuntimeConfig: () => typeof stubRuntimeConfig
+        useRuntimeConfig: () => typeof runtimeConfig
       }
-    ).useRuntimeConfig = () => stubRuntimeConfig
+    ).useRuntimeConfig = () => runtimeConfig
   })
 
   beforeEach(async () => {
+    runtimeConfig = { ...baseRuntimeConfig }
     await resetTestDatabase(dbClient)
   })
 
@@ -359,6 +374,143 @@ describe('authentication routes (TASK-BE-006)', () => {
         expect(response).not.toHaveProperty('passwordHash')
         expect(response).not.toHaveProperty('tokenHash')
       }
+    })
+  })
+
+  describe('authentication rate limiting (TASK-SEC-002)', () => {
+    const loginBody = {
+      email: 'unknown@example.test',
+      password: 'Wrong-Password-1!'
+    }
+
+    function readRetryAfter(event: H3Event): number {
+      return Number(event.node.res.getHeader('retry-after'))
+    }
+
+    it('allows login attempts up to the configured limit, then returns 429 with Retry-After (AC-2, AC-3)', async () => {
+      const ip = '203.0.113.21'
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await expect(
+          loginHandler(createEvent({ method: 'POST', body: loginBody, ip }))
+        ).rejects.toMatchObject({
+          statusCode: 401,
+          data: { code: 'UNAUTHENTICATED' }
+        })
+      }
+
+      const blockedEvent = createEvent({ method: 'POST', body: loginBody, ip })
+      await expect(loginHandler(blockedEvent)).rejects.toMatchObject({
+        statusCode: 429,
+        data: { code: 'RATE_LIMITED' }
+      })
+
+      const retryAfter = readRetryAfter(blockedEvent)
+      expect(Number.isInteger(retryAfter)).toBe(true)
+      expect(retryAfter).toBeGreaterThan(0)
+      expect(retryAfter).toBeLessThanOrEqual(900)
+    })
+
+    it('returns the same rate-limit response whether or not the email exists (AC-4)', async () => {
+      const known = createUserInput()
+      await signupHandler(
+        createEvent({
+          method: 'POST',
+          body: signupBody(known),
+          ip: '203.0.113.22'
+        })
+      )
+
+      const ip = '203.0.113.23'
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await expect(
+          loginHandler(createEvent({ method: 'POST', body: loginBody, ip }))
+        ).rejects.toMatchObject({ statusCode: 401 })
+      }
+
+      const knownEvent = createEvent({
+        method: 'POST',
+        body: { email: known.email, password: 'Wrong-Password-1!' },
+        ip
+      })
+      const unknownEvent = createEvent({ method: 'POST', body: loginBody, ip })
+
+      const knownError = (await loginHandler(knownEvent).catch(
+        (error) => error
+      )) as { statusCode: number; statusMessage: string; data: unknown }
+      const unknownError = (await loginHandler(unknownEvent).catch(
+        (error) => error
+      )) as { statusCode: number; statusMessage: string; data: unknown }
+
+      expect(knownError).toMatchObject({
+        statusCode: 429,
+        data: { code: 'RATE_LIMITED' }
+      })
+      expect(unknownError).toMatchObject({
+        statusCode: 429,
+        data: { code: 'RATE_LIMITED' }
+      })
+      expect(knownError.statusMessage).toBe(unknownError.statusMessage)
+      expect(JSON.stringify(knownError.data)).not.toContain(known.email)
+    })
+
+    it('allows signup attempts up to the configured limit, then returns 429 with Retry-After (AC-5, AC-6, AC-7)', async () => {
+      const ip = '203.0.113.24'
+
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const input = createUserInput()
+        const response = await signupHandler(
+          createEvent({ method: 'POST', body: signupBody(input), ip })
+        )
+        expect(response).toMatchObject({ email: input.email })
+      }
+
+      const blockedEvent = createEvent({
+        method: 'POST',
+        body: signupBody(createUserInput()),
+        ip
+      })
+      await expect(signupHandler(blockedEvent)).rejects.toMatchObject({
+        statusCode: 429,
+        data: { code: 'RATE_LIMITED' }
+      })
+
+      const retryAfter = readRetryAfter(blockedEvent)
+      expect(Number.isInteger(retryAfter)).toBe(true)
+      expect(retryAfter).toBeGreaterThan(0)
+      expect(retryAfter).toBeLessThanOrEqual(3600)
+    })
+
+    it('keeps login and signup rate-limit scopes independent (AC-9)', async () => {
+      const ip = '203.0.113.25'
+
+      for (let attempt = 0; attempt < 10; attempt++) {
+        await expect(
+          loginHandler(createEvent({ method: 'POST', body: loginBody, ip }))
+        ).rejects.toMatchObject({ statusCode: 401 })
+      }
+      await expect(
+        loginHandler(createEvent({ method: 'POST', body: loginBody, ip }))
+      ).rejects.toMatchObject({ statusCode: 429 })
+
+      const input = createUserInput()
+      await expect(
+        signupHandler(
+          createEvent({ method: 'POST', body: signupBody(input), ip })
+        )
+      ).resolves.toMatchObject({ email: input.email })
+    })
+
+    it('honours the limit from runtime configuration (AC-1)', async () => {
+      runtimeConfig = { ...baseRuntimeConfig, authLoginRateLimitMax: 1 }
+      const ip = '203.0.113.26'
+
+      await expect(
+        loginHandler(createEvent({ method: 'POST', body: loginBody, ip }))
+      ).rejects.toMatchObject({ statusCode: 401 })
+      await expect(
+        loginHandler(createEvent({ method: 'POST', body: loginBody, ip }))
+      ).rejects.toMatchObject({ statusCode: 429 })
     })
   })
 })

@@ -23,7 +23,11 @@ const stubRuntimeConfig = {
   tmdbRegion: 'US',
   tmdbRequestTimeoutMs: 1000,
   tmdbCacheTtlSeconds: 0,
-  sessionTtlSeconds: 604800
+  sessionTtlSeconds: 604800,
+  authLoginRateLimitMax: 10,
+  authLoginRateLimitWindowSeconds: 900,
+  authSignupRateLimitMax: 5,
+  authSignupRateLimitWindowSeconds: 3600
 }
 
 interface MockEventOptions {
@@ -54,7 +58,10 @@ function createEvent({
         headers: {
           ...(cookie ? { cookie } : {}),
           ...(body !== undefined ? { 'content-type': 'application/json' } : {})
-        }
+        },
+        // Backs h3's getRequestIP, which auth rate limiting uses to identify
+        // the caller.
+        socket: { remoteAddress: '127.0.0.1' }
       },
       res: {
         statusCode: 200,

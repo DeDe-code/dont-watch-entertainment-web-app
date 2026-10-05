@@ -16,12 +16,13 @@ This repository intentionally extends the challenge into a full-stack applicatio
 - TMDB for trending, discovery, search, details, and ratings
 - bcrypt password hashing
 
-The database has four application-owned roles:
+The database has five application-owned roles:
 
 - `User` stores account identity and the password hash.
 - `Session` stores an expiry and only a SHA-256 hash of the opaque session token.
 - `MediaReference` stores a lightweight TMDB identity and display snapshot for bookmarked media; it is not a local media catalogue.
 - `Bookmark` joins a user to a `MediaReference`.
+- `RateLimitCounter` stores hashed per-client authentication rate-limit counters and their current fixed-window expiry.
 
 TMDB responses are normalized by the provider adapter. A shared in-process provider cache stores provider responses for the configured TTL and contains no user state. Media endpoints optionally read the session and enrich normalized results with the requesting user's `isBookmarked` value. Bookmark state remains user-specific in PostgreSQL.
 
@@ -36,20 +37,26 @@ TMDB responses are normalized by the provider adapter. A shared in-process provi
 
 Copy `.env.example` to `.env` and replace placeholders. The application reads `NUXT_*` values through Nuxt runtime configuration. Prisma CLI reads `DATABASE_URL` directly from the environment. `TEST_DATABASE_URL` is shared by the integration-test setup and the authenticated End-to-End (Playwright) tests; it must point to an isolated, disposable PostgreSQL database whose name contains `test`.
 
-| Variable                       | Required for                                                          | Secret? | Purpose                                                                                 |
-| ------------------------------ | --------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
-| `DATABASE_URL`                 | Prisma CLI migrations/generation workflows that connect to PostgreSQL | Yes     | PostgreSQL URL used by Prisma CLI; never commit it.                                     |
-| `NUXT_DATABASE_URL`            | Nuxt server runtime                                                   | Yes     | PostgreSQL URL validated by the running application.                                    |
-| `TEST_DATABASE_URL`            | Integration and authenticated E2E tests                               | Yes     | Disposable PostgreSQL URL for integration and authenticated E2E test setup.             |
-| `NUXT_TMDB_ACCESS_TOKEN`       | Nuxt server runtime                                                   | Yes     | Server-side TMDB API Read Access Token. Never expose it to the browser.                 |
-| `NUXT_TMDB_LANGUAGE`           | Nuxt runtime                                                          | No      | TMDB language/locale, default `en-US`.                                                  |
-| `NUXT_TMDB_REGION`             | Nuxt runtime                                                          | No      | ISO 3166-1 alpha-2 region used for TMDB results and ratings, default `US`.              |
-| `NUXT_TMDB_REQUEST_TIMEOUT_MS` | Nuxt runtime                                                          | No      | Provider request timeout from 100 to 30000 milliseconds, default `5000`.                |
-| `NUXT_TMDB_CACHE_TTL_SECONDS`  | Nuxt runtime                                                          | No      | Shared provider cache TTL from 0 to 86400 seconds; `0` disables caching; default `300`. |
-| `NUXT_SESSION_TTL_SECONDS`     | Nuxt runtime                                                          | No      | Session lifetime from 300 to 2592000 seconds, default `604800` (7 days).                |
-| `NODE_ENV`                     | Runtime/tests                                                         | No      | Environment mode; use `production` in production and `test` for tests.                  |
+| Variable                                     | Required for                                                          | Secret? | Purpose                                                                                 |
+| -------------------------------------------- | --------------------------------------------------------------------- | ------- | --------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                               | Prisma CLI migrations/generation workflows that connect to PostgreSQL | Yes     | PostgreSQL URL used by Prisma CLI; never commit it.                                     |
+| `NUXT_DATABASE_URL`                          | Nuxt server runtime                                                   | Yes     | PostgreSQL URL validated by the running application.                                    |
+| `TEST_DATABASE_URL`                          | Integration and authenticated E2E tests                               | Yes     | Disposable PostgreSQL URL for integration and authenticated E2E test setup.             |
+| `NUXT_TMDB_ACCESS_TOKEN`                     | Nuxt server runtime                                                   | Yes     | Server-side TMDB API Read Access Token. Never expose it to the browser.                 |
+| `NUXT_TMDB_LANGUAGE`                         | Nuxt runtime                                                          | No      | TMDB language/locale, default `en-US`.                                                  |
+| `NUXT_TMDB_REGION`                           | Nuxt runtime                                                          | No      | ISO 3166-1 alpha-2 region used for TMDB results and ratings, default `US`.              |
+| `NUXT_TMDB_REQUEST_TIMEOUT_MS`               | Nuxt runtime                                                          | No      | Provider request timeout from 100 to 30000 milliseconds, default `5000`.                |
+| `NUXT_TMDB_CACHE_TTL_SECONDS`                | Nuxt runtime                                                          | No      | Shared provider cache TTL from 0 to 86400 seconds; `0` disables caching; default `300`. |
+| `NUXT_SESSION_TTL_SECONDS`                   | Nuxt runtime                                                          | No      | Session lifetime from 300 to 2592000 seconds, default `604800` (7 days).                |
+| `NUXT_AUTH_LOGIN_RATE_LIMIT_MAX`             | Nuxt runtime                                                          | No      | Login attempts allowed per client IP per window, default `10`.                          |
+| `NUXT_AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS`  | Nuxt runtime                                                          | No      | Login rate-limit window in seconds, default `900` (15 minutes).                         |
+| `NUXT_AUTH_SIGNUP_RATE_LIMIT_MAX`            | Nuxt runtime                                                          | No      | Signup attempts allowed per client IP per window, default `5`.                          |
+| `NUXT_AUTH_SIGNUP_RATE_LIMIT_WINDOW_SECONDS` | Nuxt runtime                                                          | No      | Signup rate-limit window in seconds, default `3600` (60 minutes).                       |
+| `NODE_ENV`                                   | Runtime/tests                                                         | No      | Environment mode; use `production` in production and `test` for tests.                  |
 
 Do not place real credentials, tokens, or production URLs in documentation. Values in `.env.example` are placeholders only.
+
+The four `NUXT_AUTH_*_RATE_LIMIT_*` values are non-secret, server-side settings. Login is limited to 10 requests per 15 minutes per client IP and signup to 5 requests per 60 minutes per client IP by default. The counters backing these limits are persisted in the existing PostgreSQL database, so no additional infrastructure is required. See [Authentication rate limiting](#authentication-rate-limiting) for behavior and deployment requirements.
 
 ## Local database workflow
 
@@ -72,7 +79,15 @@ Production and CI should use `npx prisma migrate deploy`, not `migrate dev` or `
 
 ## Session behavior
 
-Signup and login create a random 32-byte opaque token, store only its SHA-256 hash in `Session`, and set the `dont-watch-session` cookie. The cookie is HTTP-only, `SameSite=Lax`, scoped to `/`, and has an expiry based on `NUXT_SESSION_TTL_SECONDS`; it is `Secure` when `NODE_ENV=production`. Logout deletes the database session and clears the cookie. Expired or invalid sessions are rejected and their cookie is cleared. Authentication rate limits remain an unresolved production-readiness decision (OPEN-QUESTION-004); no rate-limit value or implementation is currently defined.
+Signup and login create a random 32-byte opaque token, store only its SHA-256 hash in `Session`, and set the `dont-watch-session` cookie. The cookie is HTTP-only, `SameSite=Lax`, scoped to `/`, and has an expiry based on `NUXT_SESSION_TTL_SECONDS`; it is `Secure` when `NODE_ENV=production`. Logout deletes the database session and clears the cookie. Expired or invalid sessions are rejected and their cookie is cleared.
+
+## Authentication rate limiting
+
+Login and signup are protected by a PostgreSQL-backed fixed-window rate limiter. Each scope keeps its own counter, so login and signup never share a limit, and the caller identifier (the resolved client IP) is hashed with SHA-256 before storage; no raw client IP is persisted. When a caller exceeds the configured maximum, the server responds with HTTP `429 Too Many Requests` and a `Retry-After` header indicating when the current window resets. Limits and window lengths are configurable through the non-secret `NUXT_AUTH_LOGIN_RATE_LIMIT_*` and `NUXT_AUTH_SIGNUP_RATE_LIMIT_*` variables documented in [Environment](#environment).
+
+The limiter resolves the client IP through H3/Nitro using the `X-Forwarded-For` header, which a proxy uses to tell the application the original visitor's IP address. **Deployment prerequisite:** production must run behind a trusted CDN or reverse proxy that sets or sanitizes `X-Forwarded-For`. A deployment where arbitrary clients can spoof that header must not be exposed, because callers could otherwise bypass IP-based rate limiting. Verify this when selecting and configuring the production hosting environment.
+
+`RateLimitCounter` is application-owned operational data stored in PostgreSQL. During routine database maintenance, rows whose `expiresAt` has passed can be deleted if the table needs trimming; the limiter does not require a scheduler, cache, or cleanup job to operate.
 
 ## v1 API
 
@@ -140,7 +155,7 @@ Chromium is the required Continuous Integration release gate. Firefox and WebKit
 
 ## Production checks and deployment
 
-Set all required production variables in the deployment environment, with separate secret storage for database URLs and the TMDB token. Run `npm ci`, `npm run db:generate`, `npx prisma migrate deploy`, and `npm run build`, then start the generated Nuxt server using the deployment platform's standard Nuxt/Nitro command. Run `npm run preview` only for a local preview of a production build. Confirm database connectivity, TMDB access, secure cookies, migration status, and the rollback backup/restore plan before releasing.
+Set all required production variables in the deployment environment, with separate secret storage for database URLs and the TMDB token. Run `npm ci`, `npm run db:generate`, `npx prisma migrate deploy`, and `npm run build`, then start the generated Nuxt server using the deployment platform's standard Nuxt/Nitro command. Run `npm run preview` only for a local preview of a production build. Confirm database connectivity, TMDB access, secure cookies, migration status, and the rollback backup/restore plan before releasing. Also confirm the deployment sits behind a trusted CDN or reverse proxy that sets or sanitizes `X-Forwarded-For`, as required by [Authentication rate limiting](#authentication-rate-limiting).
 
 TMDB is the source of media data. This product uses TMDB APIs and assets subject to [TMDB terms](https://www.themoviedb.org/terms-of-use). Include the following attribution in deployed product documentation or an about/credits surface: “This product uses the TMDB API but is not endorsed or certified by TMDB.”
 

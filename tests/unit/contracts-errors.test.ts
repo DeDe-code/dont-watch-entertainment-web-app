@@ -109,6 +109,7 @@ describe('application errors', () => {
     ['FORBIDDEN', 403],
     ['NOT_FOUND', 404],
     ['CONFLICT', 409],
+    ['RATE_LIMITED', 429],
     ['PROVIDER_UNAVAILABLE', 502]
   ] as const)('maps %s to HTTP %i', (code, statusCode) => {
     const error = toNitroError(new ApplicationError(code))

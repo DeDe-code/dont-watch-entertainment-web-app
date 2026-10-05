@@ -67,6 +67,7 @@ export const applicationErrorCodes = [
   'FORBIDDEN',
   'NOT_FOUND',
   'CONFLICT',
+  'RATE_LIMITED',
   'PROVIDER_UNAVAILABLE',
   'DATABASE_ERROR',
   'INTERNAL_ERROR'

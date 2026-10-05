@@ -46,7 +46,27 @@ const runtimeConfigSchema = z.object({
     300,
     2592000,
     'NUXT_SESSION_TTL_SECONDS'
-  ).default(604800)
+  ).default(604800),
+  authLoginRateLimitMax: boundedInteger(
+    1,
+    10000,
+    'NUXT_AUTH_LOGIN_RATE_LIMIT_MAX'
+  ).default(10),
+  authLoginRateLimitWindowSeconds: boundedInteger(
+    1,
+    86400,
+    'NUXT_AUTH_LOGIN_RATE_LIMIT_WINDOW_SECONDS'
+  ).default(900),
+  authSignupRateLimitMax: boundedInteger(
+    1,
+    10000,
+    'NUXT_AUTH_SIGNUP_RATE_LIMIT_MAX'
+  ).default(5),
+  authSignupRateLimitWindowSeconds: boundedInteger(
+    1,
+    86400,
+    'NUXT_AUTH_SIGNUP_RATE_LIMIT_WINDOW_SECONDS'
+  ).default(3600)
 })
 
 export type RuntimeConfig = z.infer<typeof runtimeConfigSchema>

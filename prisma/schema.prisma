@@ -65,3 +65,20 @@ model Bookmark {
   @@unique([userId, mediaReferenceId])
   @@index([userId, createdAt])
 }
+
+// Fixed-window rate-limit counter. Exactly one current row per (scope, caller
+// bucket): `windowStart`/`count`/`expiresAt` describe the active window and are
+// replaced in place when the window rolls over, so no per-window history
+// accumulates. `bucketKey` is a hash of the caller identifier so raw client IPs
+// are never stored; `expiresAt` marks when the window resets and enables later
+// cleanup of abandoned buckets.
+model RateLimitCounter {
+  scope       String
+  bucketKey   String
+  windowStart DateTime
+  count       Int      @default(0)
+  expiresAt   DateTime
+
+  @@id([scope, bucketKey])
+  @@index([expiresAt])
+}
