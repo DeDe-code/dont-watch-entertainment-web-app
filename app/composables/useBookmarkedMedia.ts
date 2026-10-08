@@ -91,6 +91,13 @@ function useBookmarkGroup(
    * so ownership moves to the shared map as early as possible and never moves
    * back. `seed` itself also skips identities whose mutation is in flight, so a
    * stale response cannot undo an optimistic flag.
+   *
+   * The watcher flushes synchronously because `items` below filters by the
+   * shared flag: the seed must land in the same tick the page-1 response
+   * resolves. Vue's server renderer never flushes scheduled watcher jobs, so a
+   * default-flush seed would only be applied on the client — the server would
+   * render an empty group and hydration would then repair the markup, which is
+   * a hydration mismatch.
    */
   watch(
     loadedItems,
@@ -102,7 +109,7 @@ function useBookmarkGroup(
       for (const item of arrivals) seededExternalIds.add(item.externalId)
       bookmarks.seed(arrivals)
     },
-    { immediate: true }
+    { immediate: true, flush: 'sync' }
   )
 
   /**
