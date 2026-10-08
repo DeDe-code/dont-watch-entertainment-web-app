@@ -26,7 +26,6 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
 
   runtimeConfig: {
-    databaseUrl: '',
     tmdbAccessToken: '',
     tmdbLanguage: 'en-US',
     tmdbRegion: 'US',

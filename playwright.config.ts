@@ -87,14 +87,12 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      // The Nuxt server's Prisma client reads DATABASE_URL, while its runtime
-      // config validates NUXT_DATABASE_URL, so both must point at the same
-      // resolved database. Setting DATABASE_URL explicitly also overrides any
-      // inherited developer value. The dummy TMDB token lets the server boot
-      // without live provider credentials; the preload above answers every
+      // The Nuxt server's Prisma client reads DATABASE_URL, so the server must
+      // use the database resolved above. Setting it explicitly also overrides
+      // any inherited developer value. The dummy TMDB token lets the server
+      // boot without live provider credentials; the preload above answers every
       // TMDB call, so the flow never reaches the live provider.
       DATABASE_URL: serverDatabaseUrl,
-      NUXT_DATABASE_URL: serverDatabaseUrl,
       NUXT_TMDB_ACCESS_TOKEN: 'e2e-test-token',
       // Appended rather than replaced so any NODE_OPTIONS already in the
       // environment is preserved.
