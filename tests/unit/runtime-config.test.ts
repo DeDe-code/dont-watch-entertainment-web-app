@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { parseRuntimeConfig } from '../../server/utils/runtime-config'
 
 const validConfig = {
-  databaseUrl: 'postgresql://postgres:postgres@localhost:5432/app_dev',
   tmdbAccessToken: 'test-token'
 }
 
@@ -18,7 +17,7 @@ describe('runtime configuration', () => {
   })
 
   it('rejects missing required values without including secret values', () => {
-    expect(() => parseRuntimeConfig({})).toThrow(/databaseUrl|tmdbAccessToken/)
+    expect(() => parseRuntimeConfig({})).toThrow(/tmdbAccessToken/)
     expect(() =>
       parseRuntimeConfig({ ...validConfig, tmdbAccessToken: '' })
     ).toThrow('NUXT_TMDB_ACCESS_TOKEN is required')

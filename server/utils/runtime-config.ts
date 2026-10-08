@@ -1,14 +1,5 @@
 import { z } from 'zod'
 
-const postgresUrl = z
-  .string()
-  .url('NUXT_DATABASE_URL must be a valid PostgreSQL connection URL')
-  .refine(
-    (value) =>
-      value.startsWith('postgres://') || value.startsWith('postgresql://'),
-    'NUXT_DATABASE_URL must use the postgres:// or postgresql:// protocol'
-  )
-
 const locale = z
   .string()
   .regex(/^[a-z]{2}-[A-Z]{2}$/, 'NUXT_TMDB_LANGUAGE must use the ll-RR format')
@@ -25,7 +16,6 @@ const boundedInteger = (min: number, max: number, name: string) =>
     .max(max, `${name} must be at most ${max}`)
 
 const runtimeConfigSchema = z.object({
-  databaseUrl: postgresUrl,
   tmdbAccessToken: z
     .string()
     .trim()

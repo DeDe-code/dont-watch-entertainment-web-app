@@ -27,6 +27,7 @@ For a newly created test database, apply migrations once:
 
 ```bash
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/app_test \
+DIRECT_URL=postgresql://postgres:postgres@localhost:5433/app_test \
 npx prisma migrate deploy
 ```
 
@@ -56,7 +57,6 @@ npm run typecheck
 DATABASE_URL=postgresql://postgres:postgres@localhost:5433/app_test \
 TEST_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/app_test \
 NODE_ENV=test \
-NUXT_DATABASE_URL=postgresql://postgres:postgres@localhost:5433/app_test \
 NUXT_TMDB_ACCESS_TOKEN=test-token \
 npm test
 ```
