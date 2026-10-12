@@ -120,8 +120,9 @@
     display: flex;
     flex-direction: column;
   }
-  /* Relatively positioned so the field-error can float on the right without
-     shrinking the input, keeping the underline full width in every state. */
+  /* Relatively positioned so the field-error can sit below the underline
+     without shrinking the input, keeping the underline full width in every
+     state. */
   .field {
     position: relative;
     min-width: 0;
@@ -159,12 +160,16 @@
     line-height: 1.25;
     font-weight: 300;
   }
+  /* Anchored just below the input's underline, inside the field's bottom gap,
+     so a message can never run across the placeholder, the typed value, or
+     the underline itself. The auth messages are short enough to stay on one
+     line at the desktop card width. */
   .field-error {
     position: absolute;
     right: 0;
-    top: 50%;
-    transform: translateY(-50%);
+    top: calc(100% + 4px);
     margin: 0;
+    text-align: right;
   }
   .form-error {
     margin: -12px 0 12px;
@@ -227,16 +232,13 @@
     .auth-form > * {
       max-width: 279px;
     }
-    /* The desktop overlay centers the error on the input line; at 375px the
-       field is too narrow for that, so a long message (e.g. the password
-       length rule) would run across the input's placeholder and value. Below
-       the tablet breakpoint the error stacks under its input in normal flow
-       instead, wrapping freely without covering field content. The card's
-       min-height above lets it grow only when an error is shown. */
+    /* The desktop card is too narrow at 375px for a right-aligned single line,
+       so the message stacks under its input in normal flow and wraps freely.
+       The card's min-height above lets it grow only when an error is shown. */
     .field-error {
       position: static;
-      transform: none;
       margin: 4px 0 0;
+      text-align: left;
     }
   }
 
@@ -856,7 +858,9 @@
     opacity: 0.5;
   }
   /* The Figma active state replaces the platform focus ring with the Blue 500
-     underline below, so the outline must not stack on top of it. */
+     underline, so the ring is suppressed in every focus state: a rectangle
+     around a field that has no visible box is not part of the design. Keyboard
+     focus is served by thickening the same underline instead (see below). */
   .search-bar__input:focus {
     outline: none;
   }
@@ -872,6 +876,13 @@
   }
   .search-bar__field:focus-within::after {
     background: var(--color-blue-500);
+  }
+  /* Keyboard focus. The line keeps its 14px anchor and grows up into the gap
+     by 2px, so the 1px pointer state and the field's geometry are untouched.
+     It is keyed off the modality recorded by SearchBar rather than
+     :focus-visible, which also matches after a mouse click in a text input. */
+  .search-bar__field:focus-within[data-focus-modality='keyboard']::after {
+    height: 3px;
   }
 
   /* Continuation sentinel (FE-006): a zero-height marker at the end of a

@@ -24,6 +24,24 @@ const errors = ref<Record<string, string>>({})
 const formError = ref('')
 const pending = ref(false)
 
+// Keyed in form order so a failed submit can move focus to the first field
+// reported invalid, keeping keyboard and screen-reader users oriented.
+const fieldElementIds: Record<string, string> = {
+  email: 'signup-email',
+  password: 'signup-password',
+  passwordConfirmation: 'password-confirmation'
+}
+
+// Errors only reach the DOM after Vue flushes, so focus must wait a tick.
+async function focusFirstInvalidField() {
+  await nextTick()
+  for (const [field, elementId] of Object.entries(fieldElementIds)) {
+    if (!errors.value[field]) continue
+    document.getElementById(elementId)?.focus()
+    return
+  }
+}
+
 await bootstrap()
 if (status.value === 'authenticated') await navigateTo('/', { replace: true })
 
@@ -35,6 +53,7 @@ async function submit() {
   if (!result.success) {
     for (const issue of result.error.issues)
       errors.value[issue.path[0]?.toString() ?? 'form'] = issue.message
+    await focusFirstInvalidField()
     return
   }
   pending.value = true

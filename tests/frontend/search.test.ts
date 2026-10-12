@@ -563,4 +563,25 @@ describe('ProgressiveSentinel', () => {
     expect(finished.get('[role="status"]').text()).toBe('All 25 results loaded')
     finished.unmount()
   })
+  it('reports the displayed count when the list hides backend results', async () => {
+    const wrapper = await mountSuspended(ProgressiveSentinel, {
+      props: {
+        enabled: true,
+        busy: false,
+        loaded: 11,
+        total: 48,
+        countDisplayed: true
+      }
+    })
+    expect(wrapper.get('[role="status"]').text()).toBe('Showing 11 results')
+
+    await wrapper.setProps({ loaded: 1 })
+    await nextTick()
+    expect(wrapper.get('[role="status"]').text()).toBe('Showing 1 result')
+
+    await wrapper.setProps({ enabled: false, loaded: 47 })
+    await nextTick()
+    expect(wrapper.get('[role="status"]').text()).toBe('All 47 results loaded')
+    wrapper.unmount()
+  })
 })

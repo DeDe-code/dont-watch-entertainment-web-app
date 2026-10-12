@@ -36,12 +36,19 @@ export const providerIdentitySchema = z.object({
   mediaType: mediaTypeSchema
 })
 export type ProviderIdentity = z.infer<typeof providerIdentitySchema>
+// Schemas carry their own user-facing wording: the login and signup forms
+// render `issue.message` directly, so the constraint and the message that
+// explains it stay defined together instead of drifting apart in a second
+// mapping.
 const emailSchema = z
   .string()
   .trim()
-  .email()
+  .email({ message: 'Enter a valid email address.' })
   .transform((email) => email.toLowerCase())
-const passwordSchema = z.string().min(8).max(128)
+const passwordSchema = z
+  .string()
+  .min(8, { message: 'Password must be at least 8 characters long.' })
+  .max(128, { message: 'Password must be at most 128 characters long.' })
 export const loginInputSchema = z.object({
   email: emailSchema,
   password: passwordSchema
@@ -51,7 +58,7 @@ export const signupInputSchema = loginInputSchema
   .extend({ passwordConfirmation: z.string() })
   .refine((input) => input.password === input.passwordConfirmation, {
     path: ['passwordConfirmation'],
-    message: 'Passwords do not match'
+    message: 'Passwords do not match.'
   })
 export type SignupInput = z.infer<typeof signupInputSchema>
 export const safeUserSchema = z.object({

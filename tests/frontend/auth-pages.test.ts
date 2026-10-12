@@ -42,7 +42,7 @@ async function mountAnonymousPage(
   route: string
 ) {
   requestFetch.mockRejectedValue({ statusCode: 401 })
-  return mountSuspended(page, { route })
+  return mountSuspended(page, { route, attachTo: document.body })
 }
 
 async function fillLogin(
@@ -77,6 +77,44 @@ describe('Login page', () => {
     await wrapper.get('form').trigger('submit')
 
     expect(wrapper.get('#email').attributes('aria-invalid')).toBe('true')
+    expect(apiFetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('shows user-friendly messages for empty fields', async () => {
+    const wrapper = await mountAnonymousPage(LoginPage, '/login')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.get('#email-error').text()).toBe(
+      'Enter a valid email address.'
+    )
+    expect(wrapper.get('#password-error').text()).toBe(
+      'Password must be at least 8 characters long.'
+    )
+    expect(wrapper.get('#email').attributes('aria-describedby')).toBe(
+      'email-error'
+    )
+    wrapper.unmount()
+  })
+
+  it('focuses the email field when the form is submitted empty', async () => {
+    const wrapper = await mountAnonymousPage(LoginPage, '/login')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.get('#email').element)
+    expect(apiFetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('focuses the password field when only the password is invalid', async () => {
+    const wrapper = await mountAnonymousPage(LoginPage, '/login')
+    await wrapper.get('#email').setValue(user.email)
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.get('#password').element)
     expect(apiFetch).not.toHaveBeenCalled()
     wrapper.unmount()
   })
@@ -171,7 +209,47 @@ describe('Signup page', () => {
       wrapper.get('#password-confirmation').attributes('aria-invalid')
     ).toBe('true')
     expect(wrapper.get('#password-confirmation-error').text()).toBe(
-      'Passwords do not match'
+      'Passwords do not match.'
+    )
+    expect(apiFetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('shows user-friendly messages for empty fields', async () => {
+    const wrapper = await mountAnonymousPage(SignupPage, '/signup')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(wrapper.get('#signup-email-error').text()).toBe(
+      'Enter a valid email address.'
+    )
+    expect(wrapper.get('#signup-password-error').text()).toBe(
+      'Password must be at least 8 characters long.'
+    )
+    expect(wrapper.get('#signup-email').attributes('aria-describedby')).toBe(
+      'signup-email-error'
+    )
+    wrapper.unmount()
+  })
+
+  it('focuses the first invalid field when the form is submitted empty', async () => {
+    const wrapper = await mountAnonymousPage(SignupPage, '/signup')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(wrapper.get('#signup-email').element)
+    expect(apiFetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('focuses the confirmation field when the passwords do not match', async () => {
+    const wrapper = await mountAnonymousPage(SignupPage, '/signup')
+    await fillSignup(wrapper, 'Different-Password1!')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(document.activeElement).toBe(
+      wrapper.get('#password-confirmation').element
     )
     expect(apiFetch).not.toHaveBeenCalled()
     wrapper.unmount()
