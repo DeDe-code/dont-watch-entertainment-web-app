@@ -1,8 +1,12 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
-import { clearNuxtState } from '#app'
+import type { VueWrapper } from '@vue/test-utils'
+import { clearNuxtState, useNuxtApp } from '#app'
+import { useToast } from '#imports'
+import { defineComponent, h } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem } from '../../shared/contracts'
+import App from '../../app/app.vue'
 import BookmarkButton from '../../app/components/BookmarkButton.vue'
 import MediaCard from '../../app/components/MediaCard.vue'
 import MediaCardSkeleton from '../../app/components/MediaCardSkeleton.vue'
@@ -303,10 +307,47 @@ describe('card bookmark integration', () => {
   beforeEach(async () => {
     // The bookmark map is shared app state that outlives a mounted card, so
     // each case starts empty to keep seeding and sync assertions unambiguous.
+    // Clearing all state also drops notices added by an earlier case.
     await clearNuxtState()
     fetchMock.mockReset()
     fetchMock.mockResolvedValue(undefined)
   })
+
+  // Notices are read through the public toast composable rather than Nuxt UI's
+  // state key; `runWithContext` supplies the app context `inject` needs outside
+  // of a component setup.
+  function currentNotices() {
+    return useNuxtApp().runWithContext(() => useToast().toasts.value)
+  }
+
+  // The shell, not the card, owns the regions that announce bookmark failures,
+  // so these cases mount the real `App` with the card in the page slot. The
+  // stubs keep the mount on that path: `NuxtLayout` only forwards its slot and
+  // `NuxtPage` stands in for the page that renders the card.
+  const SlotPassthrough = defineComponent({
+    render() {
+      return h('div', this.$slots.default?.())
+    }
+  })
+
+  function mountAppShell() {
+    return mountSuspended(App, {
+      global: {
+        stubs: {
+          NuxtLayout: SlotPassthrough,
+          NuxtPage: defineComponent({
+            render: () => h(MediaCard, { item: makeItem() })
+          })
+        }
+      }
+    })
+  }
+
+  function announcedTexts(shell: VueWrapper) {
+    return shell
+      .findAll('.app-bookmark-announcer [role="alert"]')
+      .map((region) => region.text())
+  }
 
   it('seeds and renders an initially bookmarked item as bookmarked', async () => {
     const wrapper = await mountSuspended(MediaCard, {
@@ -420,6 +461,125 @@ describe('card bookmark integration', () => {
 
     resolveRequest()
     await flushPromises()
+    wrapper.unmount()
+  })
+
+  it('keeps an empty failure live region in the shell before any failure', async () => {
+    const shell = await mountAppShell()
+    const announcer = shell.get('.app-bookmark-announcer')
+    const regions = announcer.findAll('[role="alert"]')
+
+    // The region is present and exposed from the first paint, before any toast
+    // exists: assistive technology ignores a live region that is inserted with
+    // its content, so the announcement must not depend on the toast's arrival.
+    expect(currentNotices()).toHaveLength(0)
+    expect(regions).toHaveLength(2)
+    expect(regions.map((region) => region.text())).toEqual(['', ''])
+    expect(announcer.classes()).toContain('sr-only')
+    expect(announcer.attributes('aria-hidden')).toBeUndefined()
+    expect(regions.map((region) => region.attributes('aria-live'))).toEqual([
+      'assertive',
+      'assertive'
+    ])
+    expect(regions.map((region) => region.attributes('aria-atomic'))).toEqual([
+      'true',
+      'true'
+    ])
+    shell.unmount()
+  })
+
+  it('shows the toast and announces the failure through the shell', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('Bookmark service unavailable'))
+    const shell = await mountAppShell()
+    const bookmark = shell.get('.media-card__bookmark')
+
+    await bookmark.trigger('click')
+    await flushPromises()
+
+    // The rollback completed before the notice was added, so the card never
+    // claims a bookmark the API rejected.
+    expect(bookmark.attributes('aria-pressed')).toBe('false')
+    expect(currentNotices()).toHaveLength(1)
+    expect(currentNotices()[0]).toMatchObject({
+      title: 'Bookmark update failed',
+      description: 'Please try again.',
+      color: 'error'
+    })
+    expect(JSON.stringify(currentNotices()[0])).not.toContain(
+      'Bookmark service unavailable'
+    )
+
+    // The visible toast is unchanged; the shell region carries the same
+    // user-friendly wording as one spoken sentence.
+    expect(document.body.textContent).toContain('Bookmark update failed')
+    expect(announcedTexts(shell)).toContain(
+      'Bookmark update failed Please try again.'
+    )
+    shell.unmount()
+  })
+
+  it('announces repeated identical failures in a fresh region each time', async () => {
+    fetchMock.mockRejectedValue(new Error('down'))
+    const shell = await mountAppShell()
+    const bookmark = shell.get('.media-card__bookmark')
+
+    await bookmark.trigger('click')
+    await flushPromises()
+    expect(announcedTexts(shell)).toEqual([
+      'Bookmark update failed Please try again.',
+      ''
+    ])
+
+    await bookmark.trigger('click')
+    await flushPromises()
+
+    // The second failure moves the identical message to the other region, so
+    // writing over announced text cannot make the repeat silent.
+    expect(announcedTexts(shell)).toEqual([
+      '',
+      'Bookmark update failed Please try again.'
+    ])
+    shell.unmount()
+  })
+
+  it('reports a rejected TrendingCard removal without losing its bookmark', async () => {
+    fetchMock.mockRejectedValueOnce(new Error('remove failed'))
+    const wrapper = await mountSuspended(TrendingCard, {
+      props: { item: makeItem({ isBookmarked: true }) }
+    })
+    const bookmark = wrapper.get('.media-trending-card__bookmark')
+
+    await bookmark.trigger('click')
+    await flushPromises()
+
+    expect(bookmark.attributes('aria-pressed')).toBe('true')
+    expect(currentNotices()).toHaveLength(1)
+    wrapper.unmount()
+  })
+
+  it('reports a failed mutation once, not once per ignored duplicate click', async () => {
+    let rejectRequest!: (error: unknown) => void
+    fetchMock.mockReturnValue(
+      new Promise((_resolve, reject) => {
+        rejectRequest = reject
+      })
+    )
+
+    const wrapper = await mountSuspended(MediaCard, {
+      props: { item: makeItem() }
+    })
+    const bookmark = wrapper.get('.media-card__bookmark')
+
+    await bookmark.trigger('click')
+    await bookmark.trigger('click')
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+
+    rejectRequest(new Error('nope'))
+    await flushPromises()
+
+    expect(currentNotices()).toHaveLength(1)
+    expect(bookmark.attributes('aria-pressed')).toBe('false')
     wrapper.unmount()
   })
 

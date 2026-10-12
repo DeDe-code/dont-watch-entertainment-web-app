@@ -32,6 +32,7 @@ const props = withDefaults(
 )
 
 const { seed, isBookmarked, toggle } = useBookmarks()
+const { reportBookmarkFailure } = useBookmarkFailureNotice()
 
 // Seed the provider's flag for this identity so the shared map carries truth
 // for cards mounted before any mutation; `seed` stores identity only and defers
@@ -54,13 +55,17 @@ const bookmarked = computed(() =>
 
 // Only the identity crosses the mutation boundary: `useBookmarks` owns the
 // provider, request shape, per-identity pending lock, and optimistic rollback.
-// Returning the promise lets Vue route a failed mutation through its error
-// handling instead of an unhandled rejection.
-function handleBookmarkToggle() {
-  return toggle({
-    mediaType: props.item.mediaType,
-    externalId: props.item.externalId
-  })
+// A rejection is reported instead of propagating, so the click handler neither
+// leaves an unhandled rejection nor hides that the bookmark did not persist.
+async function handleBookmarkToggle() {
+  try {
+    await toggle({
+      mediaType: props.item.mediaType,
+      externalId: props.item.externalId
+    })
+  } catch {
+    reportBookmarkFailure()
+  }
 }
 
 // `w500` is the largest entry of `tmdbCardImageSizes`; it is the `src` used by

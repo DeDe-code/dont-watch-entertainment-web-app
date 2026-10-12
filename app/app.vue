@@ -18,6 +18,8 @@ useHead({
 <template>
   <!-- UApp provides the Nuxt UI context (theme, toasts, modals) to the whole app -->
   <UApp>
+    <!-- Mounted from first paint so the live regions exist before any failure is reported -->
+    <BookmarkFailureAnnouncer />
     <!-- NuxtLayout renders the active layout (default or login) around the current page -->
     <NuxtLayout>
       <!-- NuxtPage renders the matched route component -->
