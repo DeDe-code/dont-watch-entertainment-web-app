@@ -20,6 +20,7 @@ const SEARCH_QUERY = 'earth'
 // selectors so the assertions describe what the user actually perceives.
 const HOME_SEARCH_PLACEHOLDER = 'Search for movies or TV series'
 const ACCOUNT_TRIGGER = '[aria-label="Account menu"]'
+const SEARCH_INPUT = 'input[aria-label="Search"]'
 
 /**
  * Waits until Vue has finished hydrating.
@@ -101,6 +102,34 @@ async function expectVisibleFocus(page: Page) {
     state!.outlined,
     `focused <${state!.tag}> has a visible focus outline`
   ).toBe(true)
+}
+
+interface SearchFocusStyle {
+  underlineHeight: number
+  underlineColor: string
+  inputOutlineStyle: string
+}
+
+/**
+ * Reads the search field's focus presentation.
+ *
+ * The field has no visible box: the Figma Blue 500 underline below the text
+ * row is its only focus affordance, and the platform outline has to stay gone
+ * in every focus state. The underline is an `::after` on the field wrapper, so
+ * its thickness is read from the pseudo-element.
+ */
+function readSearchFocusStyle(page: Page): Promise<SearchFocusStyle> {
+  return page.evaluate(() => {
+    const field = document.querySelector('.search-bar__field')
+    const input = field?.querySelector('input')
+    if (!field || !input) throw new Error('search field is not rendered')
+    const underline = getComputedStyle(field, '::after')
+    return {
+      underlineHeight: Number.parseFloat(underline.height),
+      underlineColor: underline.backgroundColor,
+      inputOutlineStyle: getComputedStyle(input).outlineStyle
+    }
+  })
 }
 
 /** A stable, human-readable identifier for the currently focused element. */
@@ -257,6 +286,44 @@ test.describe('accessibility', () => {
     // the progressive sentinel.
     const status = results.getByRole('status')
     await expect(status).toHaveText(/result/i)
+  })
+
+  test('search field shows the underline, not a ring, for keyboard focus', async ({
+    page
+  }) => {
+    // The shared SearchBar carries the indicator, so the same control is
+    // checked on the pages that render it.
+    for (const route of ['/', '/movies']) {
+      await page.goto(route)
+      await waitForHydration(page)
+
+      const field = page.locator('.search-bar__field')
+      const search = page.getByRole('textbox', { name: 'Search' })
+
+      await tabTo(page, SEARCH_INPUT)
+      await expect(search).toBeFocused()
+      await expect(field).toHaveAttribute('data-focus-modality', 'keyboard')
+
+      // Keyboard focus thickens the Figma underline to 3px and must never add
+      // the rectangular platform ring around the field.
+      const keyboard = await readSearchFocusStyle(page)
+      expect(keyboard.underlineHeight).toBe(3)
+      expect(keyboard.inputOutlineStyle).toBe('none')
+
+      // Pointer focus keeps the thin Figma underline. A text input matches
+      // :focus-visible after a click as well, so this also proves the thickness
+      // follows the input modality instead of the selector.
+      await search.click()
+      await expect(field).toHaveAttribute('data-focus-modality', 'pointer')
+      const pointer = await readSearchFocusStyle(page)
+      expect(pointer.underlineHeight).toBe(1)
+      expect(pointer.inputOutlineStyle).toBe('none')
+
+      // Both states draw the same Blue 500 line, so keyboard focus is
+      // distinguished by weight alone.
+      expect(pointer.underlineColor).not.toBe('rgba(0, 0, 0, 0)')
+      expect(keyboard.underlineColor).toBe(pointer.underlineColor)
+    }
   })
 
   test('main landmarks and headings are discoverable', async ({ page }) => {

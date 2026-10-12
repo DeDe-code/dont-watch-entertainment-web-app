@@ -21,7 +21,11 @@
 import type { MediaItem } from '~/../shared/contracts'
 
 // Home is a public page, so the Open Graph tags mirror the route metadata so a
-// shared link previews with the same title and description.
+// shared link previews with the same title and description. The Home frames have
+// no visible page title, so this same route title also becomes the visually
+// hidden page-level heading: one source keeps heading and document title in
+// agreement, and a single always-rendered heading stays valid in the normal and
+// search modes and in every loading/error state.
 const title = 'Home'
 const description = `Browse trending and recommended movies and TV series on Don't Watch Entertainment.`
 useSeoMeta({
@@ -114,6 +118,8 @@ const searchHeading = computed(() => {
 
 <template>
   <div class="home-page">
+    <h1 class="sr-only">{{ title }}</h1>
+
     <div class="home-search">
       <SearchBar
         v-model="searchQuery"
@@ -284,6 +290,7 @@ const searchHeading = computed(() => {
               :busy="recommendedLoadingMore"
               :loaded="recommendedItems.length"
               :total="recommendedTotal"
+              count-displayed
               @load="loadRecommendedNext"
             />
           </template>

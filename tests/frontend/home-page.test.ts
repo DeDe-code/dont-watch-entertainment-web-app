@@ -159,6 +159,75 @@ describe('Home page — structure', () => {
   })
 })
 
+describe('Home page — heading hierarchy', () => {
+  it('exposes one visually hidden page-level heading above the section headings', async () => {
+    const wrapper = await mountSuspended(HomePage)
+
+    const headings = wrapper.findAll('h1')
+    expect(headings).toHaveLength(1)
+    expect(headings[0]!.text()).toBe('Home')
+    expect(headings[0]!.classes()).toContain('sr-only')
+
+    // The section headings stay section-level, so the outline is 1 → 2.
+    expect(wrapper.findAll('h2').map((heading) => heading.text())).toEqual([
+      'Trending',
+      'Recommended for you'
+    ])
+    wrapper.unmount()
+  })
+
+  it('keeps the page-level heading when both sections fail', async () => {
+    setHome({ trendingStatus: 'error', recommendedStatus: 'error' })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    // The failing sections still announce themselves by heading.
+    expect(wrapper.findAll('h2').map((heading) => heading.text())).toEqual([
+      'Trending',
+      'Recommended for you'
+    ])
+    wrapper.unmount()
+  })
+
+  it('keeps the page-level heading while search results are displayed', async () => {
+    setSearch({ activeQuery: 'earth', status: 'success', total: 2 })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    expect(wrapper.findAll('h1').map((heading) => heading.text())).toEqual([
+      'Home'
+    ])
+    // The result-count line remains the search section's own h2.
+    expect(wrapper.findAll('h2').map((heading) => heading.text())).toEqual([
+      'Found 2 results for ‘earth’'
+    ])
+    wrapper.unmount()
+  })
+
+  it('keeps the page-level heading while a search is pending or failed', async () => {
+    setSearch({ activeQuery: 'earth', status: 'pending' })
+
+    const wrapper = await mountSuspended(HomePage)
+    expect(wrapper.findAll('h1')).toHaveLength(1)
+    // The result-count h2 is withheld until the total is known, so the hidden
+    // page heading is the only heading in this state and must still be there.
+    expect(wrapper.findAll('h2')).toHaveLength(0)
+
+    setSearch({
+      activeQuery: 'earth',
+      status: 'error',
+      error: new Error('search unavailable')
+    })
+    const failed = await mountSuspended(HomePage)
+    expect(failed.findAll('h1')).toHaveLength(1)
+    expect(failed.findAll('h2')).toHaveLength(0)
+
+    wrapper.unmount()
+    failed.unmount()
+  })
+})
+
 describe('Home page — Trending section', () => {
   it('renders exactly the Trending items supplied by useHomeMedia()', async () => {
     const trending = [
@@ -256,8 +325,46 @@ describe('Home page — Recommended section', () => {
       busy: false,
       loaded: 2,
       // The backend total, not the rendered (duplicate-filtered) length.
-      total: 42
+      total: 42,
+      // Recommended can render fewer items than the backend counts, so its
+      // announcements come from the rendered items instead.
+      countDisplayed: true
     })
+    wrapper.unmount()
+  })
+
+  it('announces the displayed Recommended count while pages remain', async () => {
+    setHome({
+      recommendedItems: Array.from({ length: 11 }, (_, index) =>
+        item('MOVIE', 100 + index)
+      ),
+      recommendedHasMore: true,
+      recommendedTotal: 48
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    expect(
+      wrapper.getComponent(ProgressiveSentinel).get('[role="status"]').text()
+    ).toBe('Showing 11 results')
+    wrapper.unmount()
+  })
+
+  it('announces the displayed Recommended count once loading completes', async () => {
+    // 48 backend results, one of which the grid already shows in Trending.
+    setHome({
+      recommendedItems: Array.from({ length: 47 }, (_, index) =>
+        item('MOVIE', 100 + index)
+      ),
+      recommendedHasMore: false,
+      recommendedTotal: 48
+    })
+
+    const wrapper = await mountSuspended(HomePage)
+
+    expect(
+      wrapper.getComponent(ProgressiveSentinel).get('[role="status"]').text()
+    ).toBe('All 47 results loaded')
     wrapper.unmount()
   })
 
@@ -522,6 +629,11 @@ describe('Home page — search mode', () => {
       // The backend total, not the currently loaded length.
       total: 42
     })
+    // Search renders every backend result, so it keeps the total-based
+    // announcement.
+    expect(
+      wrapper.getComponent(ProgressiveSentinel).get('[role="status"]').text()
+    ).toBe('Showing 2 of 42 results')
     wrapper.unmount()
   })
 
