@@ -236,11 +236,15 @@ const showSearchTvSection = computed(
     </div>
 
     <template v-if="isSearchMode">
-      <!-- The combined heading reuses the section-heading class: Figma renders
-           it with the same responsive Text Preset as the section headings. -->
+      <!-- The combined heading is search mode's page-level heading, so it
+           reuses the section-heading class: Figma renders it with the same
+           responsive Text Preset as the section headings. While the honest
+           combined count is unavailable the page-identity heading stands in, so
+           search mode always exposes exactly one h1 and never a second one. -->
       <h1 v-if="searchHeadingVisible" class="bookmarked-section__heading">
         {{ searchHeading }}
       </h1>
+      <h1 v-else class="sr-only">Bookmarked</h1>
 
       <section
         v-if="showSearchMovieSection"
@@ -384,6 +388,11 @@ const showSearchTvSection = computed(
     </template>
 
     <template v-else>
+      <!-- Figma renders no visible page title in normal mode, so the page's
+           single h1 is the visually hidden page identity: the heading structure
+           is complete without moving the Figma-aligned layout. -->
+      <h1 class="sr-only">Bookmarked</h1>
+
       <p v-if="wholePageEmpty" class="bookmarked-page__empty">
         You haven't bookmarked any shows yet.
       </p>

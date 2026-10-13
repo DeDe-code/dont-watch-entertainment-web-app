@@ -18,9 +18,10 @@
   itself beside them. In normal mode, the static `TV Series` heading remains
   visible during a page-1 failure, and each failure offers its own Retry: page 1
   re-runs only the page-1 read, the continuation re-runs only the failed next
-  page. In search mode, the result-count heading is intentionally visible only
-  after a successful search page 1. Neither failure ever falls back to the other
-  mode, and there is no page-wide spinner or error state.
+  page. In search mode, the result-count heading replaces the page identity only
+  after a successful search page 1, and the visually hidden `TV Series`
+  page-identity heading stands in until then. Neither failure ever falls back to
+  the other mode, and there is no page-wide spinner or error state.
 -->
 <script setup lang="ts">
 // TV Series is a public page, so the Open Graph tags mirror the route metadata
@@ -101,9 +102,13 @@ const searchHeading = computed(() => {
     </div>
 
     <template v-if="isSearchMode">
+      <!-- The result-count line is search mode's page-level heading. While it
+           cannot report the results honestly the page-identity heading stands
+           in, so every search state still exposes exactly one h1. -->
       <h1 v-if="searchHeadingVisible" class="tv-page__heading">
         {{ searchHeading }}
       </h1>
+      <h1 v-else class="sr-only">TV Series</h1>
 
       <p v-if="searchLoadFailed" class="tv-page__error" role="alert">
         Search is unavailable right now. Please try again later.

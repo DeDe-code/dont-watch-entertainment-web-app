@@ -1,5 +1,6 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { nextTick, ref } from 'vue'
+import type { VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem, MediaType } from '../../shared/contracts'
 import type { TvSectionStatus } from '../../app/composables/useTvMedia'
@@ -125,6 +126,13 @@ function setSearch(state: SearchState = {}) {
   }
   searchApi.current = refs
   return refs
+}
+
+type MountedPage = VueWrapper
+
+/** The page-level headings, so no state can expose a second h1 unnoticed. */
+function pageHeadings(wrapper: MountedPage): string[] {
+  return wrapper.findAll('h1').map((heading) => heading.text())
 }
 
 beforeEach(() => {
@@ -387,8 +395,36 @@ describe('TV Series page — search mode', () => {
 
     const wrapper = await mountSuspended(TvSeriesPage)
 
-    expect(wrapper.find('h1').exists()).toBe(false)
+    // No honest result count yet, so the page-identity heading stands in and
+    // the page still exposes exactly one h1.
+    expect(pageHeadings(wrapper)).toEqual(['TV Series'])
+    expect(wrapper.get('h1').classes()).toContain('sr-only')
     wrapper.unmount()
+  })
+
+  it('exposes exactly one page-level heading in every state', async () => {
+    setTv({ items: [tvItem(1)] })
+    const normal = await mountSuspended(TvSeriesPage)
+
+    expect(pageHeadings(normal)).toEqual(['TV Series'])
+    normal.unmount()
+
+    setSearch({ activeQuery: 'earth', status: 'success', total: 2 })
+    const search = await mountSuspended(TvSeriesPage)
+
+    expect(pageHeadings(search)).toEqual(['Found 2 results for ‘earth’'])
+    search.unmount()
+
+    setSearch({
+      activeQuery: 'earth',
+      status: 'error',
+      error: new Error('search page 1 failed')
+    })
+    const failed = await mountSuspended(TvSeriesPage)
+
+    expect(pageHeadings(failed)).toEqual(['TV Series'])
+    expect(failed.get('h1').classes()).toContain('sr-only')
+    failed.unmount()
   })
 
   it('keeps search mode with skeletons instead of falling back to normal TV', async () => {
@@ -444,8 +480,10 @@ describe('TV Series page — search mode', () => {
     expect(loadSearchNext).not.toHaveBeenCalled()
 
     // The normal TV list is not revealed underneath a failed search, and the
-    // result-count heading is not shown either.
-    expect(wrapper.find('h1').exists()).toBe(false)
+    // result-count heading is not shown either: the page-identity heading
+    // stands in so the page still exposes exactly one h1.
+    expect(pageHeadings(wrapper)).toEqual(['TV Series'])
+    expect(wrapper.get('h1').classes()).toContain('sr-only')
     expect(wrapper.findComponent(MediaGrid).exists()).toBe(false)
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(0)
     expect(wrapper.findComponent(ProgressiveSentinel).exists()).toBe(false)
