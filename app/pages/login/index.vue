@@ -86,6 +86,7 @@ async function submit() {
             id="email"
             v-model="form.email"
             type="email"
+            required
             autocomplete="email"
             placeholder="Email address"
             :aria-invalid="!!errors.email"
@@ -101,6 +102,7 @@ async function submit() {
             id="password"
             v-model="form.password"
             type="password"
+            required
             autocomplete="current-password"
             placeholder="Password"
             :aria-invalid="!!errors.password"

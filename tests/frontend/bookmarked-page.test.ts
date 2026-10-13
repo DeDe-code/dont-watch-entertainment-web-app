@@ -249,6 +249,11 @@ function sectionHeadings(wrapper: MountedPage): string[] {
     .map((heading) => heading.text())
 }
 
+/** The page-level headings, so no state can expose a second h1 unnoticed. */
+function pageHeadings(wrapper: MountedPage): string[] {
+  return wrapper.findAll('h1').map((heading) => heading.text())
+}
+
 /** The rendered card titles, in document order. */
 function cardTitles(wrapper: MountedPage): string[] {
   return wrapper.findAll('.media-card__title').map((title) => title.text())
@@ -569,6 +574,8 @@ describe('Bookmarked page — empty groups', () => {
       `You haven't bookmarked any shows yet.`
     )
     expect(headings(wrapper)).toEqual([])
+    // The empty state drops the sections but keeps the page's single h1.
+    expect(pageHeadings(wrapper)).toEqual(['Bookmarked'])
     expect(wrapper.findAllComponents(MediaCard)).toHaveLength(0)
     // The empty state replaces the sections, not the search control.
     expect(wrapper.findComponent(SearchBar).exists()).toBe(true)
@@ -832,7 +839,10 @@ describe('Bookmarked page — search mode', () => {
 
     expect(headings(wrapper)).toEqual([MOVIE_HEADING])
     expect(cardTitles(wrapper)).toEqual(['MOVIE 10'])
-    expect(wrapper.find('h1').exists()).toBe(false)
+    // Normal mode has no visible page title in Figma, so its one h1 is the
+    // visually hidden page identity.
+    expect(pageHeadings(wrapper)).toEqual(['Bookmarked'])
+    expect(wrapper.get('h1').classes()).toContain('sr-only')
     wrapper.unmount()
   })
 
@@ -877,6 +887,28 @@ describe('Bookmarked page — search mode', () => {
 })
 
 describe('Bookmarked page — combined search heading', () => {
+  it('exposes exactly one page-level heading per mode', async () => {
+    setBookmarked({ movies: { items: [item('MOVIE', 1)] } })
+    setBookmarkedSearch({ activeQuery: '' })
+
+    const normal = await mountSuspended(BookmarkedPage)
+
+    expect(pageHeadings(normal)).toEqual(['Bookmarked'])
+    normal.unmount()
+
+    setSearchResults({
+      movies: [searchItem('MOVIE', 1)],
+      movieTotal: 1,
+      tvTotal: 0
+    })
+
+    const search = await mountSuspended(BookmarkedPage)
+
+    expect(pageHeadings(search)).toEqual(['Found 1 result for ‘earth’'])
+    expect(sectionHeadings(search)).toEqual([MOVIE_HEADING])
+    search.unmount()
+  })
+
   it('reports a single combined result with typographic quotes', async () => {
     setSearchResults({
       movies: [searchItem('MOVIE', 1)],
@@ -949,7 +981,9 @@ describe('Bookmarked page — combined search heading', () => {
 
     const wrapper = await mountSuspended(BookmarkedPage)
 
-    expect(wrapper.find('h1').exists()).toBe(false)
+    // The honest combined count is not available yet, so the page-identity
+    // heading stands in and the page still exposes exactly one h1.
+    expect(pageHeadings(wrapper)).toEqual(['Bookmarked'])
     wrapper.unmount()
   })
 
@@ -967,7 +1001,9 @@ describe('Bookmarked page — combined search heading', () => {
 
     const wrapper = await mountSuspended(BookmarkedPage)
 
-    expect(wrapper.find('h1').exists()).toBe(false)
+    // A failed search has no honest combined count either, so the
+    // page-identity heading stands in for the missing result heading.
+    expect(pageHeadings(wrapper)).toEqual(['Bookmarked'])
     wrapper.unmount()
   })
 })
@@ -1247,7 +1283,7 @@ describe('Bookmarked page — search failure', () => {
     expect(error.text()).not.toContain('DB')
     expect(error.text()).not.toContain('500')
     expect(cardTitles(wrapper)).toEqual(['Search TV 2'])
-    expect(wrapper.find('h1').exists()).toBe(false)
+    expect(pageHeadings(wrapper)).toEqual(['Bookmarked'])
 
     // Retry re-runs only the Movie search page 1, not the successful TV search.
     await error.get('.bookmarked-section__retry').trigger('click')
@@ -1279,7 +1315,7 @@ describe('Bookmarked page — search failure', () => {
     expect(error.text()).not.toContain('DB')
     expect(error.text()).not.toContain('500')
     expect(cardTitles(wrapper)).toEqual(['Search MOVIE 1'])
-    expect(wrapper.find('h1').exists()).toBe(false)
+    expect(pageHeadings(wrapper)).toEqual(['Bookmarked'])
 
     // Retry re-runs only the TV search page 1, not the successful Movie search.
     await error.get('.bookmarked-section__retry').trigger('click')

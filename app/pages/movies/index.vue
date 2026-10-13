@@ -18,9 +18,10 @@ SearchBar stays; a failed continuation keeps every loaded card and reports
 itself beside them. Each failure offers its own Retry: page 1 re-runs only the
 page-1 read, the continuation re-runs only the failed next page. In normal mode
 the static `Movies` heading remains visible during a page-1 failure; in search
-mode the result-count heading is intentionally visible only after a successful
-search page 1. Neither failure ever falls back to the other mode, and there is
-no page-wide spinner or error state.
+mode the result-count heading replaces the page identity only after a successful
+search page 1, and the visually hidden `Movies` page-identity heading stands in
+until then. Neither failure ever falls back to the other mode, and there is no
+page-wide spinner or error state.
 -->
 <script setup lang="ts">
 // Movies is a public page, so the Open Graph tags mirror the route metadata so a
@@ -100,9 +101,13 @@ const searchHeading = computed(() => {
     </div>
 
     <template v-if="isSearchMode">
+      <!-- The result-count line is search mode's page-level heading. While it
+           cannot report the results honestly the page-identity heading stands
+           in, so every search state still exposes exactly one h1. -->
       <h1 v-if="searchHeadingVisible" class="movies-page__heading">
         {{ searchHeading }}
       </h1>
+      <h1 v-else class="sr-only">Movies</h1>
 
       <p v-if="searchLoadFailed" class="movies-page__error" role="alert">
         Search is unavailable right now. Please try again later.

@@ -81,6 +81,15 @@ describe('Login page', () => {
     wrapper.unmount()
   })
 
+  it('marks the mandatory fields required while Zod keeps owning validation', async () => {
+    const wrapper = await mountAnonymousPage(LoginPage, '/login')
+
+    expect(wrapper.get('form').attributes()).toHaveProperty('novalidate')
+    expect(wrapper.get('#email').attributes()).toHaveProperty('required')
+    expect(wrapper.get('#password').attributes()).toHaveProperty('required')
+    wrapper.unmount()
+  })
+
   it('shows user-friendly messages for empty fields', async () => {
     const wrapper = await mountAnonymousPage(LoginPage, '/login')
     await wrapper.get('form').trigger('submit')
@@ -212,6 +221,20 @@ describe('Signup page', () => {
       'Passwords do not match.'
     )
     expect(apiFetch).not.toHaveBeenCalled()
+    wrapper.unmount()
+  })
+
+  it('marks the mandatory fields required while Zod keeps owning validation', async () => {
+    const wrapper = await mountAnonymousPage(SignupPage, '/signup')
+
+    expect(wrapper.get('form').attributes()).toHaveProperty('novalidate')
+    expect(wrapper.get('#signup-email').attributes()).toHaveProperty('required')
+    expect(wrapper.get('#signup-password').attributes()).toHaveProperty(
+      'required'
+    )
+    expect(wrapper.get('#password-confirmation').attributes()).toHaveProperty(
+      'required'
+    )
     wrapper.unmount()
   })
 

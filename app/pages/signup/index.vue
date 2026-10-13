@@ -93,6 +93,7 @@ async function submit() {
             id="signup-email"
             v-model="form.email"
             type="email"
+            required
             autocomplete="email"
             placeholder="Email address"
             :aria-invalid="!!errors.email"
@@ -108,6 +109,7 @@ async function submit() {
             id="signup-password"
             v-model="form.password"
             type="password"
+            required
             autocomplete="new-password"
             placeholder="Password"
             :aria-invalid="!!errors.password"
@@ -131,6 +133,7 @@ async function submit() {
             id="password-confirmation"
             v-model="form.passwordConfirmation"
             type="password"
+            required
             autocomplete="new-password"
             placeholder="Repeat password"
             :aria-invalid="!!errors.passwordConfirmation"

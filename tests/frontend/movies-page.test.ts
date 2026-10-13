@@ -1,5 +1,6 @@
 import { mountSuspended, mockNuxtImport } from '@nuxt/test-utils/runtime'
 import { nextTick, ref } from 'vue'
+import type { VueWrapper } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { MediaItem, MediaType } from '../../shared/contracts'
 import type { MoviesSectionStatus } from '../../app/composables/useMoviesMedia'
@@ -121,6 +122,13 @@ function item(mediaType: MediaType, externalId: number): MediaItem {
     isTrending: false,
     isBookmarked: false
   }
+}
+
+type MountedPage = VueWrapper
+
+/** The page-level headings, so no state can expose a second h1 unnoticed. */
+function pageHeadings(wrapper: MountedPage): string[] {
+  return wrapper.findAll('h1').map((heading) => heading.text())
 }
 
 beforeEach(() => {
@@ -369,8 +377,36 @@ describe('Movies page — search mode', () => {
 
     const wrapper = await mountSuspended(MoviesPage)
 
-    expect(wrapper.find('h1').exists()).toBe(false)
+    // No honest result count yet, so the page-identity heading stands in and
+    // the page still exposes exactly one h1.
+    expect(pageHeadings(wrapper)).toEqual(['Movies'])
+    expect(wrapper.get('h1').classes()).toContain('sr-only')
     wrapper.unmount()
+  })
+
+  it('exposes exactly one page-level heading in every state', async () => {
+    setMovies({ items: [item('MOVIE', 1)], status: 'success' })
+    const normal = await mountSuspended(MoviesPage)
+
+    expect(pageHeadings(normal)).toEqual(['Movies'])
+    normal.unmount()
+
+    setSearch({ activeQuery: 'earth', status: 'success', total: 2 })
+    const search = await mountSuspended(MoviesPage)
+
+    expect(pageHeadings(search)).toEqual(['Found 2 results for ‘earth’'])
+    search.unmount()
+
+    setSearch({
+      activeQuery: 'earth',
+      status: 'error',
+      error: new Error('search page 1 failed')
+    })
+    const failed = await mountSuspended(MoviesPage)
+
+    expect(pageHeadings(failed)).toEqual(['Movies'])
+    expect(failed.get('h1').classes()).toContain('sr-only')
+    failed.unmount()
   })
 
   it('keeps search mode with skeletons instead of falling back to normal Movies', async () => {
